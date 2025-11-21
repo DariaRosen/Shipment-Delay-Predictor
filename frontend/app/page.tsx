@@ -4,7 +4,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 
 export default function Home() {
   return (
-    <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-slate-50 to-slate-100">
+    <div className="flex flex-1 items-center justify-center bg-gradient-to-br from-slate-50 to-slate-100">
       <Card className="w-full max-w-2xl">
         <CardHeader className="text-center">
           <CardTitle className="text-4xl font-bold">LogiDog</CardTitle>
