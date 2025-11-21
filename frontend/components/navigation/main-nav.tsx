@@ -1,10 +1,9 @@
 'use client'
 
 import Link from 'next/link'
-import Image from 'next/image'
 import { usePathname } from 'next/navigation'
 import { Button } from '@/components/ui/button'
-import { cn } from '@/lib/utils'
+import { LogoWithTransparentBg } from './logo-with-transparent-bg'
 
 const navItems = [
   { href: '/', label: 'Home' },
@@ -16,14 +15,13 @@ export const MainNav = () => {
 
   return (
     <nav className="border-b bg-[#F8F8F8]">
-      <div className="container mx-auto flex h-16 items-center px-4">
+      <div className="container mx-auto flex h-20 items-center px-4">
         <Link href="/" className="mr-6 flex items-center gap-3">
-          <Image
+          <LogoWithTransparentBg
             src="/logo.png"
             alt="LogiDog"
-            width={80}
-            height={80}
-            className="mix-blend-multiply"
+            width={90}
+            height={90}
           />
         </Link>
         <div className="flex gap-2">
