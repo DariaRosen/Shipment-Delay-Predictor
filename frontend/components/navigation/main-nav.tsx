@@ -15,17 +15,16 @@ export const MainNav = () => {
   const pathname = usePathname()
 
   return (
-    <nav className="border-b bg-background">
+    <nav className="border-b bg-[#F8F8F8]">
       <div className="container mx-auto flex h-16 items-center px-4">
         <Link href="/" className="mr-6 flex items-center gap-3">
           <Image
             src="/logo.png"
             alt="LogiDog"
-            width={32}
-            height={32}
-            className="h-8 w-auto"
+            width={80}
+            height={80}
+            className="mix-blend-multiply"
           />
-          <span className="font-bold text-xl">LogiDog</span>
         </Link>
         <div className="flex gap-2">
           {navItems.map((item) => (
