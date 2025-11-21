@@ -20,7 +20,7 @@ Shipment-Delay-Predictor/
 │   ├── hooks/        # React Query hooks
 │   ├── lib/          # Utilities and API client
 │   └── types/        # TypeScript type definitions
-├── backend/          # NestJS API (to be implemented)
+├── backend/          # NestJS API (alerts + rule engine scaffold)
 └── README.md         # This file
 ```
 
@@ -44,7 +44,13 @@ NEXT_PUBLIC_API_URL=http://localhost:3001/api
 
 ### Backend
 
-Backend implementation is in progress. See `backend/README.md` for details once available.
+```bash
+cd backend
+npm install
+npm run start:dev
+```
+
+The API listens on `http://localhost:3001/api`. See [`backend/README.md`](backend/README.md) for the full endpoint catalog.
 
 ## 🛠️ Tech Stack
 
@@ -57,12 +63,12 @@ Backend implementation is in progress. See `backend/README.md` for details once 
 - **Charts**: Recharts
 - **Date Handling**: date-fns
 
-### Backend (Planned)
-- **Framework**: NestJS
-- **Database**: PostgreSQL
-- **Cache**: Redis
-- **Job Queue**: BullMQ / Temporal
-- **Real-time**: Server-Sent Events (SSE)
+### Backend
+- **Framework**: NestJS 11
+- **Language**: TypeScript
+- **Validation**: class-validator / class-transformer
+- **Data**: In-memory seed (ready to swap for PostgreSQL / Redis)
+- **Real-time (Planned)**: Server-Sent Events (SSE)
 
 ## 📊 Features
 
@@ -74,7 +80,7 @@ Backend implementation is in progress. See `backend/README.md` for details once 
 - ✅ Type-safe with TypeScript
 
 ### Planned
-- [ ] Backend API implementation
+- [x] Backend API implementation
 - [ ] Delay detection rule engine
 - [ ] Real-time updates via SSE
 - [ ] Alert detail pages
@@ -105,7 +111,7 @@ The system uses rule-based logic to identify at-risk shipments:
 ## 📚 Documentation
 
 - [Frontend README](frontend/README.md) - Detailed frontend documentation
-- [Backend README](backend/README.md) - Backend documentation (coming soon)
+- [Backend README](backend/README.md) - API endpoints, sample payloads, run/test instructions
 
 ## 🤝 Contributing
 
