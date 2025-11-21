@@ -1,6 +1,6 @@
 import { Transform } from 'class-transformer';
 import { IsEnum, IsOptional, IsString } from 'class-validator';
-import { Mode, Severity } from '../types/alert-shipment.interface';
+import type { Mode, Severity } from '../types/alert-shipment.interface';
 
 export class GetAlertsDto {
   @IsOptional()
