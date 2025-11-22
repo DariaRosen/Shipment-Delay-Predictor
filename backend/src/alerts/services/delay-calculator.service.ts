@@ -42,6 +42,7 @@ export interface CalculatedAlert {
   acknowledged: boolean;
   acknowledgedBy?: string;
   acknowledgedAt?: string;
+  status?: 'completed' | 'in_progress' | 'canceled';
   steps?: Array<{
     stepName: string;
     stepDescription?: string;
@@ -303,6 +304,28 @@ export class DelayCalculatorService {
     // Ensure steps are sorted by stepOrder (should already be, but enforce it)
     steps.sort((a, b) => a.stepOrder - b.stepOrder);
     
+    // Check if shipment is canceled (stuck >3 days)
+    const isCanceled = this.isShipmentCanceled(shipment);
+    let finalCurrentStage = latestEvent?.event_stage || shipment.current_status;
+    let finalSteps = steps.length > 0 ? steps : allExpectedSteps;
+
+    // If canceled, update current stage and add refund step
+    if (isCanceled && !finalCurrentStage.toLowerCase().includes('refund')) {
+      finalCurrentStage = 'Refund customer';
+      
+      // Add refund step as the last step
+      const refundStep = {
+        stepName: 'Refund customer',
+        stepDescription: 'Shipment was lost or stuck for more than 3 days. Refund has been processed.',
+        expectedCompletionTime: new Date().toISOString(),
+        actualCompletionTime: new Date().toISOString(),
+        stepOrder: finalSteps.length + 1,
+        location: undefined,
+      };
+      
+      finalSteps = [...finalSteps, refundStep];
+    }
+
     return {
       shipmentId: shipment.shipment_id,
       origin: shipment.origin_city,
@@ -310,17 +333,20 @@ export class DelayCalculatorService {
       mode: shipment.mode as 'Air' | 'Sea' | 'Road',
       carrierName: shipment.carrier,
       serviceLevel: shipment.service_level,
-      currentStage: latestEvent?.event_stage || shipment.current_status,
+      currentStage: finalCurrentStage,
       plannedEta: shipment.expected_delivery,
       daysToEta: Math.max(0, daysToEta),
       lastMilestoneUpdate: latestEvent?.event_time || shipment.order_date,
       orderDate: shipment.order_date,
-      riskScore: Math.round(riskScore),
-      severity,
-      riskReasons,
+      riskScore: isCanceled ? 100 : Math.round(riskScore), // Max risk score for canceled
+      severity: isCanceled ? 'High' : severity,
+      riskReasons: isCanceled ? [...riskReasons, 'Lost'] as RiskReason[] : riskReasons,
       owner: shipment.owner,
       acknowledged: false, // Will be set from shipments table
-      steps: steps.length > 0 ? steps : allExpectedSteps, // Always include steps (expected or actual)
+      steps: finalSteps,
+      status: isCanceled 
+        ? 'canceled' 
+        : (this.isShipmentCompleted(shipment) ? 'completed' : 'in_progress'),
     };
   }
   
@@ -340,6 +366,46 @@ export class DelayCalculatorService {
     const stageStartTime = new Date(stageEvents[0].event_time);
     const now = new Date();
     return (now.getTime() - stageStartTime.getTime()) / (1000 * 60 * 60 * 24); // days
+  }
+
+  /**
+   * Check if shipment is stuck in a stage for more than 3 days (likely lost)
+   */
+  isShipmentCanceled(shipment: ShipmentData): boolean {
+    // Check if already marked as canceled
+    if (shipment.current_status && shipment.current_status.toLowerCase().includes('canceled')) {
+      return true;
+    }
+
+    // Check if last event indicates refund/canceled
+    if (shipment.events.length > 0) {
+      const sortedEvents = [...shipment.events].sort(
+        (a, b) => new Date(b.event_time).getTime() - new Date(a.event_time).getTime(),
+      );
+      const lastEvent = sortedEvents[0];
+      const lastEventStage = lastEvent.event_stage.toLowerCase();
+      
+      if (
+        lastEventStage.includes('refund') ||
+        lastEventStage.includes('canceled') ||
+        lastEventStage.includes('lost')
+      ) {
+        return true;
+      }
+    }
+
+    // Check if stuck in current stage for more than 3 days
+    const dwellTime = this.calculateStageDwellTime(
+      shipment.events,
+      shipment.current_status,
+    );
+    
+    // If stuck for more than 3 days and not completed, consider it canceled
+    if (dwellTime > 3 && !this.isShipmentCompleted(shipment)) {
+      return true;
+    }
+
+    return false;
   }
 }
 

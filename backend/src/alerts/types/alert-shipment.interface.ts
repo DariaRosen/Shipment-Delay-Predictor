@@ -12,7 +12,8 @@ export type RiskReason =
   | 'HubCongestion'
   | 'WeatherAlert'
   | 'CapacityShortage'
-  | 'DocsMissing';
+  | 'DocsMissing'
+  | 'Lost';
 
 export interface ShipmentStep {
   stepName: string;
@@ -42,6 +43,7 @@ export interface AlertShipment {
   acknowledged: boolean;
   acknowledgedBy?: string;
   acknowledgedAt?: string;
+  status?: 'completed' | 'in_progress' | 'canceled';
   steps?: ShipmentStep[];
 }
 

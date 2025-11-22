@@ -5,6 +5,7 @@ export enum ShipmentStatus {
   ALL = 'all',
   COMPLETED = 'completed',
   IN_PROGRESS = 'in_progress',
+  CANCELED = 'canceled',
 }
 
 export class GetShipmentsDto {
@@ -24,7 +25,7 @@ export class GetShipmentsDto {
 
   @IsOptional()
   @IsEnum(ShipmentStatus, {
-    message: 'status must be all, completed, or in_progress',
+    message: 'status must be all, completed, in_progress, or canceled',
   })
   status?: ShipmentStatus;
 

@@ -201,11 +201,16 @@ export class AlertsService {
       if (this.delayCalculator.isShipmentCompleted(shipmentData)) {
         continue;
       }
+      
+      // Skip canceled shipments - they should not appear in alerts
+      if (this.delayCalculator.isShipmentCanceled(shipmentData)) {
+        continue;
+      }
 
       const calculatedAlert = this.delayCalculator.calculateAlert(shipmentData);
 
       // Only include shipments with risk factors (riskReasons or riskScore > 0)
-      // Completed shipments are already filtered out above
+      // Completed and canceled shipments are already filtered out above
       if (calculatedAlert.riskReasons.length === 0 && calculatedAlert.riskScore === 0) {
         continue;
       }
@@ -372,18 +377,23 @@ export class AlertsService {
         })),
       };
 
+      const calculatedAlert = this.delayCalculator.calculateAlert(shipmentData);
+
       // Apply status filter (only if status is specified and not 'all')
       if (filters.status && filters.status !== ShipmentStatus.ALL) {
-        const isCompleted = this.delayCalculator.isShipmentCompleted(shipmentData);
-        if (filters.status === ShipmentStatus.COMPLETED && !isCompleted) {
-          continue; // Skip in-progress shipments when filtering for completed
+        const alertStatus = calculatedAlert.status || 
+          (this.delayCalculator.isShipmentCompleted(shipmentData) ? 'completed' : 'in_progress');
+        
+        if (filters.status === ShipmentStatus.COMPLETED && alertStatus !== 'completed') {
+          continue; // Skip non-completed shipments
         }
-        if (filters.status === ShipmentStatus.IN_PROGRESS && isCompleted) {
-          continue; // Skip completed shipments when filtering for in-progress
+        if (filters.status === ShipmentStatus.IN_PROGRESS && alertStatus !== 'in_progress') {
+          continue; // Skip non-in-progress shipments
+        }
+        if (filters.status === ShipmentStatus.CANCELED && alertStatus !== 'canceled') {
+          continue; // Skip non-canceled shipments
         }
       }
-
-      const calculatedAlert = this.delayCalculator.calculateAlert(shipmentData);
 
       alerts.push({
         ...calculatedAlert,

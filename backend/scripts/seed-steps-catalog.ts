@@ -125,6 +125,15 @@ async function seedStepsCatalog() {
       is_required: true,
       applies_to_modes: null,
     },
+    {
+      step_name: 'Refund customer',
+      step_description:
+        'Shipment was lost or stuck for more than 3 days. Refund has been processed.',
+      step_type: 'Common',
+      expected_duration_hours: 0,
+      is_required: false,
+      applies_to_modes: null,
+    },
 
     // Air-specific steps
     {
