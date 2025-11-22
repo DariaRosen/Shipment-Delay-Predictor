@@ -103,7 +103,7 @@ export const AlertsFilters = ({ filters, onFiltersChange, carriers }: AlertsFilt
       </div>
 
       <div className="space-y-2">
-        <Label htmlFor="severity">Severity</Label>
+        <Label htmlFor="severity">Risk Score</Label>
         <Select
           value={filters.severity || 'all'}
           onValueChange={(value) =>
@@ -114,10 +114,10 @@ export const AlertsFilters = ({ filters, onFiltersChange, carriers }: AlertsFilt
           }
         >
           <SelectTrigger id="severity">
-            <SelectValue placeholder="All severities" />
+            <SelectValue placeholder="All risk scores" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="all">All Severities</SelectItem>
+            <SelectItem value="all">All Risk Scores</SelectItem>
             <SelectItem value="High">High</SelectItem>
             <SelectItem value="Medium">Medium</SelectItem>
             <SelectItem value="Low">Low</SelectItem>
