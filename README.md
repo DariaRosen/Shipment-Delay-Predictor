@@ -110,6 +110,13 @@ The system uses rule-based logic to identify at-risk shipments:
 
 ## 📚 Documentation
 
+### Assignment Documentation
+- [Complete Assignment Documentation](docs/ASSIGNMENT_COMPLETE.md) - **Unified document covering all 4 parts** (Problem Analysis, UI Design, Sample Data & API, Delay Logic Implementation)
+- [UI Design Reference](docs/UI_DESIGN_REFERENCE.md) - Visual design reference for Draw.io/Canva/Miro
+- [Delay Logic Implementation](docs/delay-logic-implementation.ts) - Standalone TypeScript code for Part 4
+- [Delay Risk Rules Engine](docs/DELAY_RISK_RULES_ENGINE.md) - **Comprehensive ML-style rules engine and scoring system** for delay prediction
+
+### Technical Documentation
 - [Frontend README](frontend/README.md) - Detailed frontend documentation
 - [Backend README](backend/README.md) - API endpoints, sample payloads, run/test instructions
 

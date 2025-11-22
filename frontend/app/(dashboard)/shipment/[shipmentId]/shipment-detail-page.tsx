@@ -7,9 +7,16 @@ import { AlertShipment } from '@/types/alerts'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { ArrowLeft, MapPin } from 'lucide-react'
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip'
+import { ArrowLeft, MapPin, Info } from 'lucide-react'
 import { format } from 'date-fns'
 import { ShipmentTimeline } from '@/components/shipment/shipment-timeline'
+import { getRiskFactorExplanation } from '@/lib/risk-factor-explanations'
 
 interface ShipmentDetailPageProps {
   shipmentId: string
@@ -165,13 +172,41 @@ export function ShipmentDetailPage({ shipmentId }: ShipmentDetailPageProps) {
               <CardTitle className="text-teal-900">Risk Factors</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="flex flex-wrap gap-2">
-                {data.riskReasons.map((reason) => (
-                  <Badge key={reason} variant="outline" className="border-orange-200 text-orange-800">
-                    {reason.replace(/([A-Z])/g, ' $1').trim()}
-                  </Badge>
-                ))}
-              </div>
+              <TooltipProvider>
+                <div className="space-y-3">
+                  {data.riskReasons.map((reason) => {
+                    const explanation = getRiskFactorExplanation(reason)
+                    return (
+                      <div
+                        key={reason}
+                        className="flex items-start gap-3 p-3 rounded-lg border border-teal-200 bg-teal-50/50"
+                      >
+                        <div className="text-2xl flex-shrink-0">{explanation.icon}</div>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 mb-1">
+                            <h4 className="font-semibold text-teal-900">{explanation.name}</h4>
+                            <Badge
+                              variant="outline"
+                              className={`text-xs ${
+                                explanation.severity === 'High'
+                                  ? 'border-red-200 text-red-800'
+                                  : explanation.severity === 'Medium'
+                                    ? 'border-orange-200 text-orange-800'
+                                    : 'border-yellow-200 text-yellow-800'
+                              }`}
+                            >
+                              {explanation.severity}
+                            </Badge>
+                          </div>
+                          <p className="text-sm text-teal-700 leading-relaxed">
+                            {explanation.description}
+                          </p>
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+              </TooltipProvider>
             </CardContent>
           </Card>
         )}

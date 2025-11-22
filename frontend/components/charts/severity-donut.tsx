@@ -13,7 +13,30 @@ const COLORS = {
   Low: '#5EEAD4',
 }
 
+const CustomTooltip = ({ active, payload }: any) => {
+  if (active && payload && payload.length) {
+    const data = payload[0]
+    const total = payload.reduce((sum: number, entry: any) => sum + entry.value, 0)
+    const percentage = ((data.value / total) * 100).toFixed(1)
+    
+    return (
+      <div className="bg-white border border-teal-200 rounded-md shadow-lg p-3">
+        <p className="font-medium text-teal-900">{data.name}</p>
+        <p className="text-sm text-teal-700">
+          Count: {data.value}
+        </p>
+        <p className="text-sm font-semibold text-teal-900">
+          {percentage}%
+        </p>
+      </div>
+    )
+  }
+  return null
+}
+
 export const SeverityDonut = ({ data }: SeverityDonutProps) => {
+  const total = data.reduce((sum, entry) => sum + entry.count, 0)
+  
   return (
     <ResponsiveContainer width="100%" height={250}>
       <PieChart>
@@ -22,7 +45,10 @@ export const SeverityDonut = ({ data }: SeverityDonutProps) => {
           cx="50%"
           cy="50%"
           labelLine={false}
-          label={({ severity, count }) => `${severity}: ${count}`}
+          label={({ severity, count }) => {
+            const percentage = total > 0 ? ((count / total) * 100).toFixed(0) : '0'
+            return `${severity}: ${percentage}%`
+          }}
           outerRadius={80}
           fill="#8884d8"
           dataKey="count"
@@ -31,7 +57,7 @@ export const SeverityDonut = ({ data }: SeverityDonutProps) => {
             <Cell key={entry.severity} fill={COLORS[entry.severity]} />
           ))}
         </Pie>
-        <Tooltip />
+        <Tooltip content={<CustomTooltip />} />
         <Legend />
       </PieChart>
     </ResponsiveContainer>

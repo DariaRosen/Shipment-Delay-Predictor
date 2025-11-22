@@ -9,7 +9,14 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import { Badge } from '@/components/ui/badge'
-import { AlertShipment, Severity } from '@/types/alerts'
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip'
+import { AlertShipment, Severity, RiskReason } from '@/types/alerts'
+import { getRiskFactorExplanation, formatRiskReason } from '@/lib/risk-factor-explanations'
 
 interface AlertsTableProps {
   alerts: AlertShipment[]
@@ -31,24 +38,9 @@ const getModeIcon = (mode: string) => {
   return icons[mode] || ''
 }
 
-const getRiskIcon = (reason: string) => {
-  const icons: Record<string, string> = {
-    StaleStatus: '🕒',
-    PortCongestion: '🚢',
-    CustomsHold: '📋',
-    MissedDeparture: '❌',
-    LongDwell: '⏳',
-    NoPickup: '📦',
-    HubCongestion: '🏭',
-    WeatherAlert: '🌧️',
-    CapacityShortage: '📊',
-    DocsMissing: '📄',
-  }
-  return icons[reason] || '⚠️'
-}
-
-const formatRiskReason = (reason: string) => {
-  return reason.replace(/([A-Z])/g, ' $1').trim()
+const getRiskIcon = (reason: RiskReason) => {
+  const explanation = getRiskFactorExplanation(reason)
+  return explanation.icon
 }
 
 export const AlertsTable = ({ alerts, onRowClick }: AlertsTableProps) => {
@@ -101,13 +93,36 @@ export const AlertsTable = ({ alerts, onRowClick }: AlertsTableProps) => {
                 </div>
               </TableCell>
               <TableCell>
-                <div className="flex gap-1 flex-wrap">
-                  {alert.riskReasons.map((reason) => (
-                    <span key={reason} title={formatRiskReason(reason)} className="text-lg">
-                      {getRiskIcon(reason)}
-                    </span>
-                  ))}
-                </div>
+                <TooltipProvider>
+                  <div className="flex gap-1 flex-wrap">
+                    {alert.riskReasons.map((reason) => {
+                      const explanation = getRiskFactorExplanation(reason)
+                      return (
+                        <Tooltip
+                          key={reason}
+                          content={
+                            <div className="space-y-1">
+                              <div className="font-semibold text-teal-900">
+                                {explanation.name}
+                              </div>
+                              <div className="text-xs text-teal-700 leading-relaxed">
+                                {explanation.description}
+                              </div>
+                              <div className="text-xs text-teal-600 mt-1">
+                                Severity: <span className="font-medium">{explanation.severity}</span>
+                              </div>
+                            </div>
+                          }
+                          side="top"
+                        >
+                          <span className="text-lg cursor-help" aria-label={explanation.name}>
+                            {getRiskIcon(reason)}
+                          </span>
+                        </Tooltip>
+                      )
+                    })}
+                  </div>
+                </TooltipProvider>
               </TableCell>
               <TableCell className="text-sm text-muted-foreground">{alert.owner}</TableCell>
             </TableRow>
