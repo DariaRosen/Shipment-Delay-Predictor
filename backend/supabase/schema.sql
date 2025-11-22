@@ -50,6 +50,7 @@ END;
 $$ LANGUAGE plpgsql;
 
 -- Create trigger to automatically update updated_at
+DROP TRIGGER IF EXISTS update_alerts_updated_at ON alerts;
 CREATE TRIGGER update_alerts_updated_at
   BEFORE UPDATE ON alerts
   FOR EACH ROW
@@ -59,7 +60,46 @@ CREATE TRIGGER update_alerts_updated_at
 ALTER TABLE alerts ENABLE ROW LEVEL SECURITY;
 
 -- Create policy to allow all operations (adjust based on your auth needs)
+DROP POLICY IF EXISTS "Allow all operations" ON alerts;
 CREATE POLICY "Allow all operations" ON alerts
+  FOR ALL
+  USING (true)
+  WITH CHECK (true);
+
+-- Create shipment_steps table for tracking timeline
+CREATE TABLE IF NOT EXISTS shipment_steps (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  shipment_id VARCHAR(50) NOT NULL REFERENCES alerts(shipment_id) ON DELETE CASCADE,
+  step_name VARCHAR(255) NOT NULL,
+  step_description TEXT,
+  expected_completion_time TIMESTAMPTZ,
+  actual_completion_time TIMESTAMPTZ,
+  step_order INTEGER NOT NULL,
+  location VARCHAR(255),
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW(),
+  UNIQUE(shipment_id, step_order)
+);
+
+-- Create index on shipment_id for fast lookups
+CREATE INDEX IF NOT EXISTS idx_shipment_steps_shipment_id ON shipment_steps(shipment_id);
+
+-- Create index on step_order for sorting
+CREATE INDEX IF NOT EXISTS idx_shipment_steps_order ON shipment_steps(shipment_id, step_order);
+
+-- Create trigger to automatically update updated_at for shipment_steps
+DROP TRIGGER IF EXISTS update_shipment_steps_updated_at ON shipment_steps;
+CREATE TRIGGER update_shipment_steps_updated_at
+  BEFORE UPDATE ON shipment_steps
+  FOR EACH ROW
+  EXECUTE FUNCTION update_updated_at_column();
+
+-- Enable Row Level Security for shipment_steps
+ALTER TABLE shipment_steps ENABLE ROW LEVEL SECURITY;
+
+-- Create policy to allow all operations on shipment_steps
+DROP POLICY IF EXISTS "Allow all operations on shipment_steps" ON shipment_steps;
+CREATE POLICY "Allow all operations on shipment_steps" ON shipment_steps
   FOR ALL
   USING (true)
   WITH CHECK (true);

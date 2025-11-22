@@ -18,7 +18,9 @@
     "test:cov": "jest --coverage",
     "test:debug": "node --inspect-brk -r tsconfig-paths/register -r ts-node/register node_modules/.bin/jest --runInBand",
     "test:e2e": "jest --config ./test/jest-e2e.json",
-    "migrate:supabase": "ts-node -r dotenv/config scripts/migrate-to-supabase.ts"
+    "migrate:supabase": "ts-node -r dotenv/config scripts/migrate-to-supabase.ts",
+    "migrate:normalized": "ts-node -r dotenv/config scripts/migrate-to-normalized.ts",
+    "fix:timestamps": "ts-node -r dotenv/config scripts/fix-event-timestamps.ts"
   },
   "dependencies": {
     "@nestjs/common": "^11.0.1",

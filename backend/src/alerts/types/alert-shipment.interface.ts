@@ -14,6 +14,15 @@ export type RiskReason =
   | 'CapacityShortage'
   | 'DocsMissing';
 
+export interface ShipmentStep {
+  stepName: string;
+  stepDescription?: string;
+  expectedCompletionTime?: string;
+  actualCompletionTime?: string;
+  stepOrder: number;
+  location?: string;
+}
+
 export interface AlertShipment {
   shipmentId: string;
   origin: string;
@@ -32,6 +41,7 @@ export interface AlertShipment {
   acknowledged: boolean;
   acknowledgedBy?: string;
   acknowledgedAt?: string;
+  steps?: ShipmentStep[];
 }
 
 export interface AlertsResponse {

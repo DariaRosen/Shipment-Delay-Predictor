@@ -1,4 +1,12 @@
 import { AlertShipment } from '../types/alert-shipment.interface';
+import { generateShipmentSteps } from './shipment-steps-generator';
+
+// Helper to create a date from days ago
+const daysAgo = (days: number): Date => {
+  const date = new Date();
+  date.setDate(date.getDate() - days);
+  return date;
+};
 
 export const sampleAlerts: AlertShipment[] = [
   {
@@ -17,6 +25,12 @@ export const sampleAlerts: AlertShipment[] = [
     riskReasons: ['StaleStatus', 'PortCongestion'],
     owner: 'west-coast-team',
     acknowledged: false,
+    steps: generateShipmentSteps(
+      'Sea',
+      daysAgo(8),
+      new Date('2024-11-22T18:00:00Z'),
+      'Port Loading',
+    ),
   },
   {
     shipmentId: 'LD1002',
@@ -34,6 +48,12 @@ export const sampleAlerts: AlertShipment[] = [
     riskReasons: ['CustomsHold'],
     owner: 'air-expedite',
     acknowledged: false,
+    steps: generateShipmentSteps(
+      'Air',
+      daysAgo(5),
+      new Date('2024-11-19T12:00:00Z'),
+      'Awaiting Customs',
+    ),
   },
   {
     shipmentId: 'LD1003',
@@ -51,6 +71,12 @@ export const sampleAlerts: AlertShipment[] = [
     riskReasons: [],
     owner: 'gulf-team',
     acknowledged: false,
+    steps: generateShipmentSteps(
+      'Sea',
+      daysAgo(12),
+      new Date('2024-11-30T00:00:00Z'),
+      'In Transit',
+    ),
   },
   {
     shipmentId: 'LD1004',
@@ -68,6 +94,12 @@ export const sampleAlerts: AlertShipment[] = [
     riskReasons: ['MissedDeparture'],
     owner: 'road-east',
     acknowledged: false,
+    steps: generateShipmentSteps(
+      'Road',
+      daysAgo(2),
+      new Date('2024-11-19T20:00:00Z'),
+      'Ready for Dispatch',
+    ),
   },
   {
     shipmentId: 'LD1005',
@@ -85,6 +117,12 @@ export const sampleAlerts: AlertShipment[] = [
     riskReasons: [],
     owner: 'emea-air',
     acknowledged: false,
+    steps: generateShipmentSteps(
+      'Air',
+      daysAgo(4),
+      new Date('2024-11-21T06:00:00Z'),
+      'Departed',
+    ),
   },
   {
     shipmentId: 'LD1006',
@@ -102,6 +140,12 @@ export const sampleAlerts: AlertShipment[] = [
     riskReasons: ['LongDwell'],
     owner: 'emea-sea',
     acknowledged: false,
+    steps: generateShipmentSteps(
+      'Sea',
+      daysAgo(10),
+      new Date('2024-11-25T00:00:00Z'),
+      'Transshipment Hub',
+    ),
   },
   {
     shipmentId: 'LD1007',
@@ -119,6 +163,12 @@ export const sampleAlerts: AlertShipment[] = [
     riskReasons: [],
     owner: 'road-west',
     acknowledged: false,
+    steps: generateShipmentSteps(
+      'Road',
+      daysAgo(1),
+      new Date('2024-11-18T23:00:00Z'),
+      'Out for Delivery',
+    ),
   },
   {
     shipmentId: 'LD1008',
@@ -136,6 +186,12 @@ export const sampleAlerts: AlertShipment[] = [
     riskReasons: ['NoPickup', 'StaleStatus'],
     owner: 'air-export',
     acknowledged: false,
+    steps: generateShipmentSteps(
+      'Air',
+      daysAgo(7),
+      new Date('2024-11-20T12:00:00Z'),
+      'Awaiting Pickup',
+    ),
   },
   {
     shipmentId: 'LD1009',
@@ -153,6 +209,12 @@ export const sampleAlerts: AlertShipment[] = [
     riskReasons: ['CustomsHold'],
     owner: 'road-south',
     acknowledged: false,
+    steps: generateShipmentSteps(
+      'Road',
+      daysAgo(5),
+      new Date('2024-11-23T06:00:00Z'),
+      'Border Inspection',
+    ),
   },
   {
     shipmentId: 'LD1010',
@@ -170,6 +232,12 @@ export const sampleAlerts: AlertShipment[] = [
     riskReasons: [],
     owner: 'pacific',
     acknowledged: false,
+    steps: generateShipmentSteps(
+      'Sea',
+      daysAgo(9),
+      new Date('2024-11-27T00:00:00Z'),
+      'At Sea',
+    ),
   },
   {
     shipmentId: 'LD1011',
@@ -187,6 +255,12 @@ export const sampleAlerts: AlertShipment[] = [
     riskReasons: ['HubCongestion'],
     owner: 'mea-air',
     acknowledged: false,
+    steps: generateShipmentSteps(
+      'Air',
+      daysAgo(6),
+      new Date('2024-11-22T06:00:00Z'),
+      'Hub Dwell',
+    ),
   },
   {
     shipmentId: 'LD1012',
@@ -204,6 +278,12 @@ export const sampleAlerts: AlertShipment[] = [
     riskReasons: ['WeatherAlert'],
     owner: 'road-eu',
     acknowledged: false,
+    steps: generateShipmentSteps(
+      'Road',
+      daysAgo(2),
+      new Date('2024-11-19T18:00:00Z'),
+      'In Transit',
+    ),
   },
   {
     shipmentId: 'LD1013',
@@ -221,6 +301,12 @@ export const sampleAlerts: AlertShipment[] = [
     riskReasons: ['CapacityShortage'],
     owner: 'anz-sea',
     acknowledged: false,
+    steps: generateShipmentSteps(
+      'Sea',
+      daysAgo(8),
+      new Date('2024-11-29T00:00:00Z'),
+      'Awaiting Vessel',
+    ),
   },
   {
     shipmentId: 'LD1014',
@@ -238,6 +324,12 @@ export const sampleAlerts: AlertShipment[] = [
     riskReasons: [],
     owner: 'air-pacific',
     acknowledged: false,
+    steps: generateShipmentSteps(
+      'Air',
+      daysAgo(4),
+      new Date('2024-11-19T22:00:00Z'),
+      'Customs Cleared',
+    ),
   },
   {
     shipmentId: 'LD1015',
@@ -255,5 +347,11 @@ export const sampleAlerts: AlertShipment[] = [
     riskReasons: ['DocsMissing'],
     owner: 'mea-air',
     acknowledged: false,
+    steps: generateShipmentSteps(
+      'Air',
+      daysAgo(6),
+      new Date('2024-11-21T04:00:00Z'),
+      'Awaiting Docs',
+    ),
   },
 ];

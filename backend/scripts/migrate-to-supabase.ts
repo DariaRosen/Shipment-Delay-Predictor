@@ -82,6 +82,53 @@ async function seedData() {
   console.log(`✅ Successfully seeded ${alertsToInsert.length} alerts!`);
 }
 
+async function seedSteps() {
+  console.log('🌱 Seeding shipment steps data...');
+
+  const stepsToInsert: any[] = [];
+
+  for (const alert of sampleAlerts) {
+    if (alert.steps && alert.steps.length > 0) {
+      for (const step of alert.steps) {
+        stepsToInsert.push({
+          shipment_id: alert.shipmentId,
+          step_name: step.stepName,
+          step_description: step.stepDescription || null,
+          expected_completion_time: step.expectedCompletionTime || null,
+          actual_completion_time: step.actualCompletionTime || null,
+          step_order: step.stepOrder,
+          location: step.location || null,
+        });
+      }
+    }
+  }
+
+  if (stepsToInsert.length === 0) {
+    console.log('⚠️  No steps to insert');
+    return;
+  }
+
+  // Insert in batches to avoid overwhelming the database
+  const batchSize = 50;
+  for (let i = 0; i < stepsToInsert.length; i += batchSize) {
+    const batch = stepsToInsert.slice(i, i + batchSize);
+    const { error } = await supabase.from('shipment_steps').upsert(batch, {
+      onConflict: 'shipment_id,step_order',
+      ignoreDuplicates: false,
+    });
+
+    if (error) {
+      console.error(`❌ Error inserting steps batch ${i / batchSize + 1}:`, error);
+    } else {
+      console.log(
+        `✅ Inserted steps batch ${i / batchSize + 1} (${batch.length} steps)`,
+      );
+    }
+  }
+
+  console.log(`✅ Successfully seeded ${stepsToInsert.length} steps!`);
+}
+
 async function main() {
   console.log('🚀 Starting Supabase data migration...\n');
 
@@ -96,6 +143,9 @@ async function main() {
 
     // Seed the data
     await seedData();
+
+    // Seed the steps
+    await seedSteps();
 
     console.log('\n✅ Migration completed successfully!');
     console.log('\n📊 You can now view your data in the Supabase dashboard.');
