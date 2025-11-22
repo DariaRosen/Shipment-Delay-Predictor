@@ -334,10 +334,18 @@ export class DelayCalculatorService {
     if (isCanceled && !finalCurrentStage.toLowerCase().includes('refund')) {
       finalCurrentStage = 'Refund customer';
       
+      // Both conditions must be met for cancellation
+      const dwellTime = this.calculateStageDwellTime(shipment.events, shipment.current_status);
+      const now = new Date();
+      const expectedDelivery = new Date(shipment.expected_delivery);
+      const daysPastEta = (now.getTime() - expectedDelivery.getTime()) / (1000 * 60 * 60 * 24);
+      
+      const cancellationReason = `Shipment was stuck in the same step for more than 30 days (${Math.floor(dwellTime)} days) and is ${Math.floor(daysPastEta)} days past the expected delivery date (14+ days delay).`;
+      
       // Add refund step as the last step
       const refundStep = {
         stepName: 'Refund customer',
-        stepDescription: 'Shipment was lost or stuck in the same step for more than 30 days. Refund has been processed.',
+        stepDescription: `${cancellationReason} Refund has been processed.`,
         expectedCompletionTime: new Date().toISOString(),
         actualCompletionTime: new Date().toISOString(),
         stepOrder: finalSteps.length + 1,
@@ -415,7 +423,10 @@ export class DelayCalculatorService {
   }
 
   /**
-   * Check if shipment is stuck in the same step for more than 30 days (likely lost)
+   * Check if shipment should be canceled:
+   * BOTH conditions must be true:
+   * 1. Stuck in the same step for more than 30 days, AND
+   * 2. 14+ days past the expected delivery date (ETA) and not completed
    */
   isShipmentCanceled(shipment: ShipmentData): boolean {
     // Check if already marked as canceled
@@ -440,14 +451,24 @@ export class DelayCalculatorService {
       }
     }
 
-    // Check if stuck in the same step/stage for more than 30 days
+    // Don't cancel if shipment is already completed
+    if (this.isShipmentCompleted(shipment)) {
+      return false;
+    }
+
+    // Condition 1: Check if stuck in the same step/stage for more than 30 days
     const dwellTime = this.calculateStageDwellTime(
       shipment.events,
       shipment.current_status,
     );
     
-    // If stuck in the same step for more than 30 days and not completed, consider it canceled
-    if (dwellTime > 30 && !this.isShipmentCompleted(shipment)) {
+    // Condition 2: Check if 14+ days past expected delivery date (ETA)
+    const now = new Date();
+    const expectedDelivery = new Date(shipment.expected_delivery);
+    const daysPastEta = (now.getTime() - expectedDelivery.getTime()) / (1000 * 60 * 60 * 24);
+    
+    // BOTH conditions must be true for cancellation
+    if (dwellTime > 30 && daysPastEta >= 14) {
       return true;
     }
 
