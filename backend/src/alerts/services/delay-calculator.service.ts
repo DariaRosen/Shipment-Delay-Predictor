@@ -113,7 +113,23 @@ export class DelayCalculatorService {
     
     // Check if order date is in the future - mark as future shipment
     if (orderDate > now) {
-      // Return a minimal alert for future shipments
+      // Generate expected steps for future shipments (so users can see the planned timeline)
+      const orderDateForSteps = new Date(shipment.order_date);
+      const plannedEtaForSteps = new Date(shipment.expected_delivery);
+      const allExpectedSteps = generateShipmentSteps(
+        shipment.mode as 'Air' | 'Sea' | 'Road',
+        orderDateForSteps,
+        plannedEtaForSteps,
+        'Order scheduled', // Use appropriate initial stage for future shipments
+      );
+      
+      // For future shipments, all steps are expected (no actual completion times yet)
+      const futureSteps = allExpectedSteps.map((step) => ({
+        ...step,
+        actualCompletionTime: undefined, // No actual times for future shipments
+      }));
+      
+      // Return alert for future shipments with generated steps
       return {
         shipmentId: shipment.shipment_id,
         origin: shipment.origin_city,
@@ -121,7 +137,7 @@ export class DelayCalculatorService {
         mode: shipment.mode as 'Air' | 'Sea' | 'Road',
         carrierName: shipment.carrier,
         serviceLevel: shipment.service_level,
-        currentStage: shipment.current_status || 'Order scheduled',
+        currentStage: 'Order scheduled', // Appropriate stage for future shipments
         plannedEta: shipment.expected_delivery,
         daysToEta: Math.ceil((expectedDelivery.getTime() - now.getTime()) / (1000 * 60 * 60 * 24)),
         lastMilestoneUpdate: shipment.order_date,
@@ -132,7 +148,7 @@ export class DelayCalculatorService {
         owner: shipment.owner,
         acknowledged: false,
         status: 'future',
-        steps: [],
+        steps: futureSteps, // Include generated steps for timeline display
       };
     }
     

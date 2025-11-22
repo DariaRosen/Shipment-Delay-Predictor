@@ -10,7 +10,7 @@ const navItems = [
   { href: '/', label: 'Home' },
   { href: '/alerts', label: 'Alerts' },
   { href: '/shipments', label: 'Shipments' },
-  { href: '/shipment', label: 'Shipment' },
+  { href: '/shipment', label: 'Shipment Details' },
 ]
 
 export const MainNav = () => {
