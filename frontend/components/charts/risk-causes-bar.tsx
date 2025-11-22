@@ -14,7 +14,7 @@ export const RiskCausesBar = ({ data }: RiskCausesBarProps) => {
         <XAxis type="number" />
         <YAxis dataKey="reason" type="category" width={120} />
         <Tooltip />
-        <Bar dataKey="count" fill="#7f4b2c" />
+        <Bar dataKey="count" fill="#14B8A6" />
       </BarChart>
     </ResponsiveContainer>
   )

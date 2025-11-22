@@ -8,9 +8,9 @@ interface SeverityDonutProps {
 }
 
 const COLORS = {
-  High: '#ef4444',
-  Medium: '#f59e0b',
-  Low: '#10b981',
+  High: '#0F766E',
+  Medium: '#14B8A6',
+  Low: '#5EEAD4',
 }
 
 export const SeverityDonut = ({ data }: SeverityDonutProps) => {
