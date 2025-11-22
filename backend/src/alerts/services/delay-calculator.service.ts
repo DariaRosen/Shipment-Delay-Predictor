@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { RiskReason } from '../types/alert-shipment.interface';
 import { generateShipmentSteps } from '../data/shipment-steps-generator';
+import { calculateCityDistance } from '../utils/distance-calculator';
 
 export interface ShipmentEvent {
   event_time: string;
@@ -17,7 +18,9 @@ export interface ShipmentData {
   carrier: string;
   mode: string;
   origin_city: string;
+  origin_country?: string;
   dest_city: string;
+  dest_country?: string;
   service_level: string;
   owner: string;
   events: ShipmentEvent[];
@@ -202,49 +205,216 @@ export class DelayCalculatorService {
       riskReasons.push('HubCongestion');
     }
     
-    // WeatherAlert: Check for weather-related delays (if event mentions weather)
-    if (latestEvent?.event_stage.toLowerCase().includes('weather') || 
-        latestEvent?.description?.toLowerCase().includes('weather')) {
+    // WeatherAlert: Check for weather-related delays (check all events)
+    const hasWeatherIssue = shipment.events.some((event) => {
+      const desc = (event.description || '').toLowerCase();
+      const stage = event.event_stage.toLowerCase();
+      return stage.includes('weather') || 
+             desc.includes('weather') || 
+             desc.includes('storm') || 
+             desc.includes('hurricane') ||
+             desc.includes('snow') ||
+             desc.includes('rain');
+    });
+    if (hasWeatherIssue) {
       riskReasons.push('WeatherAlert');
     }
     
-    // CapacityShortage: Check for capacity-related issues
-    if (latestEvent?.event_stage.toLowerCase().includes('capacity') ||
-        latestEvent?.event_stage.toLowerCase().includes('shortage')) {
+    // CapacityShortage: Check for capacity-related issues (check all events)
+    const hasCapacityIssue = shipment.events.some((event) => {
+      const desc = (event.description || '').toLowerCase();
+      const stage = event.event_stage.toLowerCase();
+      return stage.includes('capacity') ||
+             stage.includes('shortage') ||
+             desc.includes('capacity') ||
+             desc.includes('shortage') ||
+             desc.includes('full') ||
+             desc.includes('no space');
+    });
+    if (hasCapacityIssue) {
       riskReasons.push('CapacityShortage');
     }
     
-    // DocsMissing: Check for documentation issues
-    if (latestEvent?.event_stage.toLowerCase().includes('doc') ||
-        latestEvent?.event_stage.toLowerCase().includes('document')) {
+    // DocsMissing: Check for documentation issues (check all events)
+    const hasDocIssue = shipment.events.some((event) => {
+      const desc = (event.description || '').toLowerCase();
+      const stage = event.event_stage.toLowerCase();
+      return stage.includes('doc') ||
+             stage.includes('document') ||
+             stage.includes('paperwork') ||
+             desc.includes('document') ||
+             desc.includes('doc') ||
+             desc.includes('paperwork') ||
+             desc.includes('missing document');
+    });
+    if (hasDocIssue) {
       riskReasons.push('DocsMissing');
     }
     
-    // Calculate risk score (0-100)
+    // ============================================
+    // ENHANCED RISK SCORING ENGINE
+    // ============================================
     let riskScore = 0;
     
-    // Base risk from time to ETA
+    // 1. TEMPORAL RISK FACTORS
+    
+    // 1.1 Time to ETA Pressure (Weight: 0.25)
+    // Only add points if shipment is actually close to or past ETA
     if (daysToEta < 0) {
-      riskScore += 50; // Already past ETA
+      riskScore += 50; // Already past ETA - Critical
     } else if (daysToEta < 1) {
-      riskScore += 40;
+      riskScore += 40; // High risk - less than 1 day
     } else if (daysToEta < 2) {
-      riskScore += 25;
+      riskScore += 25; // Medium risk - less than 2 days
     } else if (daysToEta < 3) {
-      riskScore += 15;
+      riskScore += 15; // Low risk - less than 3 days
     }
+    // If daysToEta >= 3, no points added (shipment has enough time)
     
-    // Add risk from stale status
+    // 1.2 Stale Status (Weight: 0.20)
+    // Only add points if shipment hasn't been updated recently
     if (daysSinceLastEvent > 5) {
-      riskScore += 40;
+      riskScore += 40; // High risk - no update in 5+ days
     } else if (daysSinceLastEvent > 3) {
-      riskScore += 25;
+      riskScore += 25; // Medium risk - no update in 3+ days
     } else if (daysSinceLastEvent > 1) {
-      riskScore += 10;
+      riskScore += 10; // Low risk - no update in 1+ days
+    }
+    // If daysSinceLastEvent <= 1, no points added (recent update)
+    
+    // 1.3 Long Dwell Time
+    // Only add points if actually stuck (already detected as risk reason)
+    // Don't double-count - the risk reason already adds 10 points
+    
+    // 2. ROUTE & DISTANCE RISK FACTORS
+    // Only add these if there are already other risk factors (actual problems)
+    // Distance and international status are potential risks, not actual delays
+    
+    const hasActualRiskFactors = riskReasons.length > 0 || 
+                                 daysToEta < 3 || 
+                                 daysSinceLastEvent > 1 ||
+                                 stageDwellTime > 2;
+    
+    if (hasActualRiskFactors) {
+      // 2.1 Distance-Based Risk (only if there are actual problems)
+      const distance = calculateCityDistance(shipment.origin_city, shipment.dest_city);
+      if (distance !== null) {
+        const mode = shipment.mode.toLowerCase();
+        if (mode === 'air') {
+          if (distance > 12000) {
+            riskScore += 3; // Very long distance (reduced from 10)
+          } else if (distance > 8000) {
+            riskScore += 2; // Long distance (reduced from 5)
+          }
+        } else if (mode === 'sea') {
+          if (distance > 15000) {
+            riskScore += 3; // Very long distance (reduced from 10)
+          } else if (distance > 10000) {
+            riskScore += 2; // Long distance (reduced from 5)
+          }
+        } else if (mode === 'road') {
+          if (distance > 3000) {
+            riskScore += 3; // Very long distance (reduced from 10)
+          } else if (distance > 2000) {
+            riskScore += 2; // Long distance (reduced from 5)
+          }
+        }
+      }
+      
+      // 2.2 International vs Domestic Risk (only if there are actual problems)
+      const isInternational = shipment.origin_country && 
+                             shipment.dest_country && 
+                             shipment.origin_country.toLowerCase() !== shipment.dest_country.toLowerCase();
+      if (isInternational) {
+        riskScore += 2; // International shipments (reduced from 5)
+      }
     }
     
-    // Add risk from each risk reason
+    // 3. LOCATION-BASED RISK FACTORS (already detected as risk reasons)
+    // These are already in riskReasons array, but we add base risk points
+    
+    // 4. OPERATIONAL RISK FACTORS
+    
+    // 4.1 Check all events for operational issues (not just latest)
+    shipment.events.forEach((event) => {
+      const eventDesc = (event.description || '').toLowerCase();
+      const eventStage = event.event_stage.toLowerCase();
+      
+      // Weather alerts
+      if (eventDesc.includes('weather') || 
+          eventDesc.includes('storm') || 
+          eventDesc.includes('hurricane') ||
+          eventStage.includes('weather')) {
+        // Already added as risk reason, but ensure it's counted
+      }
+      
+      // Capacity issues
+      if (eventDesc.includes('capacity') || 
+          eventDesc.includes('shortage') || 
+          eventDesc.includes('full') ||
+          eventStage.includes('capacity')) {
+        // Already added as risk reason
+      }
+      
+      // Documentation issues
+      if (eventDesc.includes('document') || 
+          eventDesc.includes('doc') || 
+          eventDesc.includes('paperwork') ||
+          eventStage.includes('document')) {
+        // Already added as risk reason
+      }
+    });
+    
+    // 5. SEASONAL & CONTEXTUAL FACTORS
+    // Only add these if there are already actual risk factors
+    
+    if (hasActualRiskFactors) {
+      // 5.1 Peak Season (November, December) - only if there are problems
+      const orderMonth = new Date(shipment.order_date).getMonth() + 1; // 1-12
+      if (orderMonth === 11 || orderMonth === 12) {
+        riskScore += 2; // Holiday season (reduced from 5, only if problems exist)
+      }
+      
+      // 5.2 Day of Week (weekend processing limitations) - only if stuck
+      const currentDayOfWeek = now.getDay(); // 0 = Sunday, 6 = Saturday
+      const requiresProcessing = latestEvent?.event_stage.toLowerCase().includes('customs') ||
+                                 latestEvent?.event_stage.toLowerCase().includes('port') ||
+                                 latestEvent?.event_stage.toLowerCase().includes('hub');
+      const isStuck = daysSinceLastEvent > 1; // Only if actually stuck
+      if ((currentDayOfWeek === 0 || currentDayOfWeek === 6) && requiresProcessing && isStuck) {
+        riskScore += 2; // Weekend processing (reduced from 3, only if stuck)
+      }
+    }
+    
+    // 6. SERVICE LEVEL FACTORS
+    // Only add if Express and there are actual problems
+    
+    if (shipment.service_level.toLowerCase() === 'express' && hasActualRiskFactors) {
+      // Express shipments have tighter timelines
+      // If ETA is close and shipment is not in final stages, add risk
+      if (daysToEta < 2 && 
+          !latestEvent?.event_stage.toLowerCase().includes('delivery') &&
+          !latestEvent?.event_stage.toLowerCase().includes('pickup')) {
+        riskScore += 5; // Express shipment not meeting expectations (reduced from 10)
+      }
+    }
+    
+    // 7. ADD RISK FROM EACH RISK REASON
+    // Each risk reason adds 10 points (already significant indicators)
     riskScore += riskReasons.length * 10;
+    
+    // 8. SAFEGUARD: If shipment is clearly healthy, cap the score
+    // Healthy = plenty of time (>=7 days), recent update (<=1 day), no risk reasons
+    const isHealthy = daysToEta >= 7 && 
+                      daysSinceLastEvent <= 1 && 
+                      riskReasons.length === 0 &&
+                      stageDwellTime <= 2;
+    
+    if (isHealthy) {
+      // Even if distance/international/seasonal factors added points,
+      // cap healthy shipments at a low score
+      riskScore = Math.min(riskScore, 15); // Max 15 for healthy shipments
+    }
     
     // Cap at 100
     riskScore = Math.min(100, riskScore);

@@ -85,7 +85,9 @@ export class AlertsService {
       carrier: (shipment as ShipmentRow).carrier,
       mode: (shipment as ShipmentRow).mode,
       origin_city: (shipment as ShipmentRow).origin_city,
+      origin_country: (shipment as ShipmentRow).origin_country,
       dest_city: (shipment as ShipmentRow).dest_city,
+      dest_country: (shipment as ShipmentRow).dest_country,
       service_level: (shipment as ShipmentRow).service_level,
       owner: (shipment as ShipmentRow).owner,
       events: (events || []).map((e) => ({
