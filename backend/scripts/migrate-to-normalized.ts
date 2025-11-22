@@ -77,7 +77,7 @@ async function migrateToNormalized() {
   // Fetch steps for all alerts
   const shipmentIds = allAlerts.map((a) => a.shipment_id);
   const { data: allSteps } = await supabase
-    .from('shipment_steps')
+    .from('shipment_timeline')
     .select('*')
     .in('shipment_id', shipmentIds)
     .order('shipment_id, step_order', { ascending: true });
@@ -336,7 +336,7 @@ async function main() {
 
     console.log('\n✅ Migration completed successfully!');
     console.log('\n📊 You can now view your data in the Supabase dashboard.');
-    console.log('⚠️  Note: The old alerts and shipment_steps tables can be dropped if no longer needed.');
+    console.log('⚠️  Note: The old alerts and shipment_timeline tables can be dropped if no longer needed.');
   } catch (error) {
     console.error('❌ Migration failed:', error);
     process.exit(1);

@@ -181,17 +181,17 @@ async function migrateToStepsBased() {
 
   console.log(`✅ Found events for ${eventsByShipment.size} shipments\n`);
 
-  // 4. Clear existing shipment_steps (if any)
-  console.log('🧹 Clearing existing shipment_steps...');
+  // 4. Clear existing shipment_timeline (if any)
+  console.log('🧹 Clearing existing shipment_timeline...');
   const { error: deleteError } = await supabase
-    .from('shipment_steps')
+    .from('shipment_timeline')
     .delete()
     .neq('shipment_step_id', 0); // Delete all
 
   if (deleteError) {
-    console.error('⚠️  Error clearing shipment_steps (may not exist yet):', deleteError.message);
+    console.error('⚠️  Error clearing shipment_timeline (may not exist yet):', deleteError.message);
   } else {
-    console.log('✅ Cleared existing shipment_steps\n');
+    console.log('✅ Cleared existing shipment_timeline\n');
   }
 
   // 5. Process each shipment
@@ -251,7 +251,7 @@ async function migrateToStepsBased() {
         0,
       );
 
-      // Create shipment_steps records
+      // Create shipment_timeline records
       for (let stepIndex = 0; stepIndex < selectedSteps.length; stepIndex++) {
         const step = selectedSteps[stepIndex];
         cumulativeHours += Number(step.expected_duration_hours || 0);
@@ -298,7 +298,7 @@ async function migrateToStepsBased() {
       // Insert in batches
       if (shipmentStepsToInsert.length >= batchSize) {
         const { error: insertError } = await supabase
-          .from('shipment_steps')
+          .from('shipment_timeline')
           .insert(shipmentStepsToInsert);
 
         if (insertError) {
@@ -306,7 +306,7 @@ async function migrateToStepsBased() {
           errorCount += Math.floor(shipmentStepsToInsert.length / selectedSteps.length);
           successCount -= Math.floor(shipmentStepsToInsert.length / selectedSteps.length);
         } else {
-          console.log(`✅ Inserted batch of ${shipmentStepsToInsert.length} shipment_steps`);
+          console.log(`✅ Inserted batch of ${shipmentStepsToInsert.length} shipment_timeline records`);
         }
         shipmentStepsToInsert.length = 0; // Clear array
       }
@@ -320,7 +320,7 @@ async function migrateToStepsBased() {
     }
   }
 
-  // Insert remaining shipment_steps
+  // Insert remaining shipment_timeline records
   if (shipmentStepsToInsert.length > 0) {
     const { error: insertError } = await supabase
       .from('shipment_steps')
@@ -330,14 +330,14 @@ async function migrateToStepsBased() {
       console.error(`❌ Error inserting final batch:`, insertError.message);
       errorCount += Math.floor(shipmentStepsToInsert.length / 20); // Estimate
     } else {
-      console.log(`✅ Inserted final batch of ${shipmentStepsToInsert.length} shipment_steps`);
+      console.log(`✅ Inserted final batch of ${shipmentStepsToInsert.length} shipment_timeline records`);
     }
   }
 
   console.log('\n✅ Migration completed!');
   console.log(`   ✅ Successfully migrated: ${successCount} shipments`);
   console.log(`   ❌ Errors: ${errorCount} shipments`);
-  console.log(`   📊 Total shipment_steps created: ${successCount * 15} (estimated)`);
+  console.log(`   📊 Total shipment_timeline records created: ${successCount * 15} (estimated)`);
 }
 
 // Run the migration

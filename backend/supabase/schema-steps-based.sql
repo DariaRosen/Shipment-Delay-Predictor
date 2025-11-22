@@ -1,6 +1,7 @@
 -- ============================================
--- LogiDog Shipment Delay Predictor - Steps-Based Schema
--- Flexible step selection based on shipment characteristics
+-- DEPRECATED: This schema is no longer used
+-- We use schema-normalized.sql instead (shipments + shipment_events only)
+-- Steps are generated dynamically in code, not stored in database
 -- ============================================
 
 -- Create shipments table (main shipment metadata)
@@ -27,7 +28,7 @@ CREATE TABLE IF NOT EXISTS shipments (
 );
 
 -- Drop and recreate steps table to ensure clean state
-DROP TABLE IF EXISTS shipment_steps CASCADE;
+DROP TABLE IF EXISTS shipment_timeline CASCADE;
 DROP TABLE IF EXISTS steps CASCADE;
 
 -- Create steps table (master catalog of all possible steps)
@@ -42,8 +43,8 @@ CREATE TABLE steps (
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- Create shipment_steps table (junction table - links shipments to their steps)
-CREATE TABLE shipment_steps (
+-- Create shipment_timeline table (junction table - links shipments to their steps)
+CREATE TABLE shipment_timeline (
   shipment_step_id SERIAL PRIMARY KEY,
   shipment_id VARCHAR(50) NOT NULL REFERENCES shipments(shipment_id) ON DELETE CASCADE,
   step_id INTEGER NOT NULL REFERENCES steps(step_id) ON DELETE CASCADE,
@@ -66,9 +67,9 @@ CREATE INDEX IF NOT EXISTS idx_shipments_current_status ON shipments(current_sta
 CREATE INDEX IF NOT EXISTS idx_shipments_owner ON shipments(owner);
 CREATE INDEX IF NOT EXISTS idx_steps_step_type ON steps(step_type);
 CREATE INDEX IF NOT EXISTS idx_steps_applies_to_modes ON steps(applies_to_modes);
-CREATE INDEX IF NOT EXISTS idx_shipment_steps_shipment_id ON shipment_steps(shipment_id);
-CREATE INDEX IF NOT EXISTS idx_shipment_steps_step_id ON shipment_steps(step_id);
-CREATE INDEX IF NOT EXISTS idx_shipment_steps_order ON shipment_steps(shipment_id, step_order);
+CREATE INDEX IF NOT EXISTS idx_shipment_timeline_shipment_id ON shipment_timeline(shipment_id);
+CREATE INDEX IF NOT EXISTS idx_shipment_timeline_step_id ON shipment_timeline(step_id);
+CREATE INDEX IF NOT EXISTS idx_shipment_timeline_order ON shipment_timeline(shipment_id, step_order);
 
 -- Create function to update updated_at timestamp
 CREATE OR REPLACE FUNCTION update_updated_at_column()
@@ -86,17 +87,17 @@ CREATE TRIGGER update_shipments_updated_at
   FOR EACH ROW
   EXECUTE FUNCTION update_updated_at_column();
 
--- Create trigger to automatically update updated_at for shipment_steps
-DROP TRIGGER IF EXISTS update_shipment_steps_updated_at ON shipment_steps;
-CREATE TRIGGER update_shipment_steps_updated_at
-  BEFORE UPDATE ON shipment_steps
+-- Create trigger to automatically update updated_at for shipment_timeline
+DROP TRIGGER IF EXISTS update_shipment_timeline_updated_at ON shipment_timeline;
+CREATE TRIGGER update_shipment_timeline_updated_at
+  BEFORE UPDATE ON shipment_timeline
   FOR EACH ROW
   EXECUTE FUNCTION update_updated_at_column();
 
 -- Enable Row Level Security
 ALTER TABLE shipments ENABLE ROW LEVEL SECURITY;
 ALTER TABLE steps ENABLE ROW LEVEL SECURITY;
-ALTER TABLE shipment_steps ENABLE ROW LEVEL SECURITY;
+ALTER TABLE shipment_timeline ENABLE ROW LEVEL SECURITY;
 
 -- Create policies to allow all operations
 DROP POLICY IF EXISTS "Allow all operations on shipments" ON shipments;
@@ -111,8 +112,8 @@ CREATE POLICY "Allow all operations on steps" ON steps
   USING (true)
   WITH CHECK (true);
 
-DROP POLICY IF EXISTS "Allow all operations on shipment_steps" ON shipment_steps;
-CREATE POLICY "Allow all operations on shipment_steps" ON shipment_steps
+DROP POLICY IF EXISTS "Allow all operations on shipment_timeline" ON shipment_timeline;
+CREATE POLICY "Allow all operations on shipment_timeline" ON shipment_timeline
   FOR ALL
   USING (true)
   WITH CHECK (true);

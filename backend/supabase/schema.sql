@@ -1,44 +1,52 @@
--- Create alerts table
-CREATE TABLE IF NOT EXISTS alerts (
-  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
-  shipment_id VARCHAR(50) UNIQUE NOT NULL,
-  origin VARCHAR(255) NOT NULL,
-  destination VARCHAR(255) NOT NULL,
+-- ============================================
+-- LogiDog Shipment Delay Predictor - Main Schema
+-- Uses shipment_events for actual events
+-- Steps are generated dynamically in code
+-- ============================================
+
+-- Create shipments table (main shipment metadata)
+CREATE TABLE IF NOT EXISTS shipments (
+  shipment_id VARCHAR(50) PRIMARY KEY,
+  order_date TIMESTAMPTZ NOT NULL,
+  origin_country VARCHAR(100),
+  origin_city VARCHAR(100),
+  dest_country VARCHAR(100),
+  dest_city VARCHAR(100),
+  expected_delivery TIMESTAMPTZ,
+  current_status VARCHAR(100),
+  carrier VARCHAR(100),
+  service_level VARCHAR(50),
   mode VARCHAR(10) NOT NULL CHECK (mode IN ('Air', 'Sea', 'Road')),
-  carrier_name VARCHAR(255) NOT NULL,
-  service_level VARCHAR(50) NOT NULL,
-  current_stage VARCHAR(255) NOT NULL,
-  planned_eta TIMESTAMPTZ NOT NULL,
-  days_to_eta INTEGER NOT NULL,
-  last_milestone_update TIMESTAMPTZ NOT NULL,
-  risk_score INTEGER NOT NULL CHECK (risk_score >= 0 AND risk_score <= 100),
-  severity VARCHAR(10) NOT NULL CHECK (severity IN ('High', 'Medium', 'Low')),
-  risk_reasons TEXT[] DEFAULT '{}',
-  owner VARCHAR(255) NOT NULL,
+  priority_level VARCHAR(20) DEFAULT 'normal',
+  owner VARCHAR(255),
   acknowledged BOOLEAN DEFAULT FALSE,
   acknowledged_by VARCHAR(255),
   acknowledged_at TIMESTAMPTZ,
+  last_update TIMESTAMPTZ DEFAULT NOW(),
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- Create index on shipment_id for fast lookups
-CREATE INDEX IF NOT EXISTS idx_alerts_shipment_id ON alerts(shipment_id);
+-- Create shipment_events table (timeline of actual events)
+CREATE TABLE IF NOT EXISTS shipment_events (
+  event_id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  shipment_id VARCHAR(50) NOT NULL REFERENCES shipments(shipment_id) ON DELETE CASCADE,
+  event_time TIMESTAMPTZ NOT NULL,
+  event_stage VARCHAR(255) NOT NULL,
+  description TEXT,
+  location VARCHAR(255),
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  UNIQUE(shipment_id, event_time, event_stage)
+);
 
--- Create index on severity for filtering
-CREATE INDEX IF NOT EXISTS idx_alerts_severity ON alerts(severity);
-
--- Create index on mode for filtering
-CREATE INDEX IF NOT EXISTS idx_alerts_mode ON alerts(mode);
-
--- Create index on carrier_name for filtering
-CREATE INDEX IF NOT EXISTS idx_alerts_carrier_name ON alerts(carrier_name);
-
--- Create index on acknowledged for filtering
-CREATE INDEX IF NOT EXISTS idx_alerts_acknowledged ON alerts(acknowledged);
-
--- Create index on planned_eta for date queries
-CREATE INDEX IF NOT EXISTS idx_alerts_planned_eta ON alerts(planned_eta);
+-- Create indexes for performance
+CREATE INDEX IF NOT EXISTS idx_shipments_carrier ON shipments(carrier);
+CREATE INDEX IF NOT EXISTS idx_shipments_mode ON shipments(mode);
+CREATE INDEX IF NOT EXISTS idx_shipments_expected_delivery ON shipments(expected_delivery);
+CREATE INDEX IF NOT EXISTS idx_shipments_current_status ON shipments(current_status);
+CREATE INDEX IF NOT EXISTS idx_shipments_owner ON shipments(owner);
+CREATE INDEX IF NOT EXISTS idx_shipment_events_shipment_id ON shipment_events(shipment_id);
+CREATE INDEX IF NOT EXISTS idx_shipment_events_event_time ON shipment_events(shipment_id, event_time DESC);
 
 -- Create function to update updated_at timestamp
 CREATE OR REPLACE FUNCTION update_updated_at_column()
@@ -49,58 +57,26 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
--- Create trigger to automatically update updated_at
-DROP TRIGGER IF EXISTS update_alerts_updated_at ON alerts;
-CREATE TRIGGER update_alerts_updated_at
-  BEFORE UPDATE ON alerts
+-- Create trigger to automatically update updated_at for shipments
+DROP TRIGGER IF EXISTS update_shipments_updated_at ON shipments;
+CREATE TRIGGER update_shipments_updated_at
+  BEFORE UPDATE ON shipments
   FOR EACH ROW
   EXECUTE FUNCTION update_updated_at_column();
 
--- Enable Row Level Security (optional, for future auth)
-ALTER TABLE alerts ENABLE ROW LEVEL SECURITY;
+-- Enable Row Level Security
+ALTER TABLE shipments ENABLE ROW LEVEL SECURITY;
+ALTER TABLE shipment_events ENABLE ROW LEVEL SECURITY;
 
--- Create policy to allow all operations (adjust based on your auth needs)
-DROP POLICY IF EXISTS "Allow all operations" ON alerts;
-CREATE POLICY "Allow all operations" ON alerts
+-- Create policies to allow all operations
+DROP POLICY IF EXISTS "Allow all operations on shipments" ON shipments;
+CREATE POLICY "Allow all operations on shipments" ON shipments
   FOR ALL
   USING (true)
   WITH CHECK (true);
 
--- Create shipment_steps table for tracking timeline
-CREATE TABLE IF NOT EXISTS shipment_steps (
-  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
-  shipment_id VARCHAR(50) NOT NULL REFERENCES alerts(shipment_id) ON DELETE CASCADE,
-  step_name VARCHAR(255) NOT NULL,
-  step_description TEXT,
-  expected_completion_time TIMESTAMPTZ,
-  actual_completion_time TIMESTAMPTZ,
-  step_order INTEGER NOT NULL,
-  location VARCHAR(255),
-  created_at TIMESTAMPTZ DEFAULT NOW(),
-  updated_at TIMESTAMPTZ DEFAULT NOW(),
-  UNIQUE(shipment_id, step_order)
-);
-
--- Create index on shipment_id for fast lookups
-CREATE INDEX IF NOT EXISTS idx_shipment_steps_shipment_id ON shipment_steps(shipment_id);
-
--- Create index on step_order for sorting
-CREATE INDEX IF NOT EXISTS idx_shipment_steps_order ON shipment_steps(shipment_id, step_order);
-
--- Create trigger to automatically update updated_at for shipment_steps
-DROP TRIGGER IF EXISTS update_shipment_steps_updated_at ON shipment_steps;
-CREATE TRIGGER update_shipment_steps_updated_at
-  BEFORE UPDATE ON shipment_steps
-  FOR EACH ROW
-  EXECUTE FUNCTION update_updated_at_column();
-
--- Enable Row Level Security for shipment_steps
-ALTER TABLE shipment_steps ENABLE ROW LEVEL SECURITY;
-
--- Create policy to allow all operations on shipment_steps
-DROP POLICY IF EXISTS "Allow all operations on shipment_steps" ON shipment_steps;
-CREATE POLICY "Allow all operations on shipment_steps" ON shipment_steps
+DROP POLICY IF EXISTS "Allow all operations on shipment_events" ON shipment_events;
+CREATE POLICY "Allow all operations on shipment_events" ON shipment_events
   FOR ALL
   USING (true)
   WITH CHECK (true);
-

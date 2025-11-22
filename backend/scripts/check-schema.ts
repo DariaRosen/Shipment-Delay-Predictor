@@ -20,11 +20,11 @@ async function checkSchema() {
 
   // Check for old tables
   const { error: alertsError } = await supabase.from('alerts').select('shipment_id').limit(1);
-  const { error: stepsError } = await supabase.from('shipment_steps').select('id').limit(1);
+  const { error: stepsError } = await supabase.from('shipment_timeline').select('id').limit(1);
 
   console.log('Old schema:');
   console.log(`  - alerts table: ${alertsError?.code === '42P01' ? '❌ Not found' : '✅ Exists'}`);
-  console.log(`  - shipment_steps table: ${stepsError?.code === '42P01' ? '❌ Not found' : '✅ Exists'}`);
+  console.log(`  - shipment_timeline table: ${stepsError?.code === '42P01' ? '❌ Not found' : '✅ Exists'}`);
 
   // Check for new tables
   const { error: shipmentsError } = await supabase.from('shipments').select('shipment_id').limit(1);

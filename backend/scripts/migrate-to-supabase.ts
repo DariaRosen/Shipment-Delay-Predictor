@@ -112,7 +112,7 @@ async function seedSteps() {
   const batchSize = 50;
   for (let i = 0; i < stepsToInsert.length; i += batchSize) {
     const batch = stepsToInsert.slice(i, i + batchSize);
-    const { error } = await supabase.from('shipment_steps').upsert(batch, {
+    const { error } = await supabase.from('shipment_timeline').upsert(batch, {
       onConflict: 'shipment_id,step_order',
       ignoreDuplicates: false,
     });
