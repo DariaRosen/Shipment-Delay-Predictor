@@ -36,7 +36,7 @@ const getRiskIcon = (reason: string) => {
     StaleStatus: '🕒',
     PortCongestion: '🚢',
     CustomsHold: '📋',
-    MissedDeparture: '✈️',
+    MissedDeparture: '❌',
     LongDwell: '⏳',
     NoPickup: '📦',
     HubCongestion: '🏭',
@@ -45,6 +45,10 @@ const getRiskIcon = (reason: string) => {
     DocsMissing: '📄',
   }
   return icons[reason] || '⚠️'
+}
+
+const formatRiskReason = (reason: string) => {
+  return reason.replace(/([A-Z])/g, ' $1').trim()
 }
 
 export const AlertsTable = ({ alerts, onRowClick }: AlertsTableProps) => {
@@ -99,7 +103,7 @@ export const AlertsTable = ({ alerts, onRowClick }: AlertsTableProps) => {
               <TableCell>
                 <div className="flex gap-1 flex-wrap">
                   {alert.riskReasons.map((reason) => (
-                    <span key={reason} title={reason} className="text-lg">
+                    <span key={reason} title={formatRiskReason(reason)} className="text-lg">
                       {getRiskIcon(reason)}
                     </span>
                   ))}
