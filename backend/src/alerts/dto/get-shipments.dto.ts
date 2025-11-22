@@ -1,5 +1,5 @@
 import { Transform, Type } from 'class-transformer';
-import { IsEnum, IsInt, IsOptional, IsString, Min, Max } from 'class-validator';
+import { IsEnum, IsInt, IsOptional, IsString, Min, Max, IsIn } from 'class-validator';
 
 export enum ShipmentStatus {
   ALL = 'all',
@@ -24,7 +24,25 @@ export class GetShipmentsDto {
   month?: number;
 
   @IsOptional()
-  @IsEnum(ShipmentStatus, {
+  @Transform(({ value }) => {
+    if (typeof value === 'string') {
+      // Remove any trailing characters like ":1" that might come from enum serialization
+      const cleanValue = value.split(':')[0].toLowerCase().trim();
+      // Map to enum values
+      if (cleanValue === 'all') return ShipmentStatus.ALL;
+      if (cleanValue === 'completed') return ShipmentStatus.COMPLETED;
+      if (cleanValue === 'in_progress' || cleanValue === 'in-progress' || cleanValue === 'inprogress') {
+        return ShipmentStatus.IN_PROGRESS;
+      }
+      if (cleanValue === 'canceled' || cleanValue === 'cancelled') {
+        return ShipmentStatus.CANCELED;
+      }
+      // Return undefined for invalid values
+      return undefined;
+    }
+    return value;
+  })
+  @IsIn([ShipmentStatus.ALL, ShipmentStatus.COMPLETED, ShipmentStatus.IN_PROGRESS, ShipmentStatus.CANCELED], {
     message: 'status must be all, completed, in_progress, or canceled',
   })
   status?: ShipmentStatus;
