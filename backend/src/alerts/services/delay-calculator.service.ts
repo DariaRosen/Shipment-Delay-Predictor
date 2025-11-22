@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { RiskReason } from '../types/alert-shipment.interface';
+import { generateShipmentSteps } from '../data/shipment-steps-generator';
 
 export interface ShipmentEvent {
   event_time: string;
@@ -214,16 +215,93 @@ export class DelayCalculatorService {
       severity = 'Low';
     }
     
-    // Convert events to steps format
-    const steps = shipment.events
-      .sort((a, b) => new Date(a.event_time).getTime() - new Date(b.event_time).getTime())
-      .map((event, index) => ({
-        stepName: event.event_stage,
-        stepDescription: event.description,
-        actualCompletionTime: event.event_time,
-        stepOrder: index + 1,
-        location: event.location,
-      }));
+    // Generate all expected steps (including future ones) based on mode, order date, and ETA
+    const orderDateForSteps = new Date(shipment.order_date);
+    const plannedEtaForSteps = new Date(shipment.expected_delivery);
+    const allExpectedSteps = generateShipmentSteps(
+      shipment.mode as 'Air' | 'Sea' | 'Road',
+      orderDateForSteps,
+      plannedEtaForSteps,
+      latestEvent?.event_stage || shipment.current_status,
+    );
+    
+    // Create a map of actual events by stage name (for matching)
+    const eventsByStage = new Map<string, ShipmentEvent[]>();
+    shipment.events.forEach((event) => {
+      const stageKey = event.event_stage.toLowerCase();
+      if (!eventsByStage.has(stageKey)) {
+        eventsByStage.set(stageKey, []);
+      }
+      eventsByStage.get(stageKey)!.push(event);
+    });
+    
+    // Merge expected steps with actual events, ensuring chronological order
+    // Steps are already in correct order from generateShipmentSteps (stepOrder 1, 2, 3, ...)
+    let lastActualTime = orderDateForSteps.getTime();
+    const steps = allExpectedSteps.map((expectedStep, index) => {
+      // First step (order created) always uses order date as actual time
+      if (index === 0 || expectedStep.stepOrder === 1) {
+        const firstStepName = expectedStep.stepName.toLowerCase();
+        if (firstStepName.includes('order has been successfully created')) {
+          lastActualTime = orderDateForSteps.getTime();
+          return {
+            ...expectedStep,
+            actualCompletionTime: orderDateForSteps.toISOString(),
+          };
+        }
+      }
+      
+      // Try to find matching event(s) for this step
+      const stepNameLower = expectedStep.stepName.toLowerCase();
+      const matchingEvents = eventsByStage.get(stepNameLower) || [];
+      
+      // If we have matching events, use the latest one as actual completion time
+      if (matchingEvents.length > 0) {
+        const latestMatchingEvent = matchingEvents.sort(
+          (a, b) => new Date(b.event_time).getTime() - new Date(a.event_time).getTime()
+        )[0];
+        
+        let eventTime = new Date(latestMatchingEvent.event_time).getTime();
+        
+        // Ensure minimum time gap from previous step (at least 5 minutes)
+        const minTimeGap = 5 * 60 * 1000; // 5 minutes in milliseconds
+        if (eventTime <= lastActualTime) {
+          eventTime = lastActualTime + minTimeGap;
+        }
+        
+        lastActualTime = eventTime;
+        
+        return {
+          stepName: expectedStep.stepName,
+          stepDescription: expectedStep.stepDescription || latestMatchingEvent.description,
+          expectedCompletionTime: expectedStep.expectedCompletionTime,
+          actualCompletionTime: new Date(eventTime).toISOString(),
+          stepOrder: expectedStep.stepOrder, // Preserve original step order
+          location: latestMatchingEvent.location || expectedStep.location,
+        };
+      }
+      
+      // No matching event - use expected step as-is (for future steps)
+      // But if it has an actual completion time from generation, ensure chronological order
+      if (expectedStep.actualCompletionTime) {
+        const actualTime = new Date(expectedStep.actualCompletionTime).getTime();
+        const minTimeGap = 5 * 60 * 1000; // 5 minutes in milliseconds
+        if (actualTime <= lastActualTime) {
+          const adjustedTime = lastActualTime + minTimeGap;
+          lastActualTime = adjustedTime;
+          return {
+            ...expectedStep,
+            actualCompletionTime: new Date(adjustedTime).toISOString(),
+          };
+        }
+        lastActualTime = actualTime;
+      }
+      
+      return expectedStep;
+    });
+    
+    // Ensure steps are sorted by stepOrder (should already be, but enforce it)
+    steps.sort((a, b) => a.stepOrder - b.stepOrder);
     
     return {
       shipmentId: shipment.shipment_id,
@@ -242,7 +320,7 @@ export class DelayCalculatorService {
       riskReasons,
       owner: shipment.owner,
       acknowledged: false, // Will be set from shipments table
-      steps: steps.length > 0 ? steps : undefined,
+      steps: steps.length > 0 ? steps : allExpectedSteps, // Always include steps (expected or actual)
     };
   }
   

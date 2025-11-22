@@ -106,31 +106,61 @@ export function generateShipmentSteps(
   );
   const activeStepIndex = currentStageIndex >= 0 ? currentStageIndex : Math.floor(templates.length * 0.7);
 
+  let lastActualTime = orderCreatedAt.getTime(); // Track the last actual completion time
+
   templates.forEach((template, index) => {
     const isCompleted = index < activeStepIndex;
     const isInProgress = index === activeStepIndex;
     const isPending = index > activeStepIndex;
 
-    // Calculate expected completion time
-    const progressRatio = templates
+    // Calculate expected completion time based on cumulative duration
+    const cumulativeHours = templates
       .slice(0, index + 1)
-      .reduce((sum, t) => sum + t.expectedDurationHours, 0) / totalExpectedHours;
+      .reduce((sum, t) => sum + t.expectedDurationHours, 0);
+    const progressRatio = cumulativeHours / totalExpectedHours;
     const expectedCompletionTime = new Date(
       orderCreatedAt.getTime() + totalDuration * progressRatio,
     );
 
     // Calculate actual completion time (if completed)
     let actualCompletionTime: Date | undefined;
-    if (isCompleted) {
-      // Completed steps have actual time slightly before expected (or on time)
-      const variance = (Math.random() - 0.5) * 0.2; // ±10% variance
-      actualCompletionTime = new Date(
-        expectedCompletionTime.getTime() + totalDuration * variance * progressRatio,
+    
+    // First step (order created) always has actual time = order date
+    if (index === 0) {
+      actualCompletionTime = new Date(orderCreatedAt);
+      lastActualTime = orderCreatedAt.getTime();
+    } else if (isCompleted) {
+      // Use the expected time as base, but ensure minimum time gap from previous step
+      const minTimeGapMinutes = Math.max(
+        template.expectedDurationHours * 60, // At least the expected duration
+        5, // Minimum 5 minutes between steps
       );
+      
+      // Calculate base actual time (with small variance)
+      const variance = (Math.random() - 0.5) * 0.1; // ±5% variance
+      let baseActualTime = expectedCompletionTime.getTime() + totalDuration * variance * progressRatio;
+      
+      // Ensure minimum gap from previous step
+      const minActualTime = lastActualTime + (minTimeGapMinutes * 60 * 1000);
+      if (baseActualTime < minActualTime) {
+        baseActualTime = minActualTime;
+      }
+      
+      // Don't exceed the expected time by too much (max 20% delay)
+      const maxActualTime = expectedCompletionTime.getTime() + (totalDuration * 0.2 * progressRatio);
+      if (baseActualTime > maxActualTime) {
+        baseActualTime = Math.min(baseActualTime, maxActualTime);
+      }
+      
+      actualCompletionTime = new Date(baseActualTime);
+      lastActualTime = baseActualTime; // Update for next step
     } else if (isInProgress) {
       // In-progress step might have actual time if it's started
       if (Math.random() > 0.3) {
-        actualCompletionTime = new Date(Date.now());
+        // Ensure it's after the last completed step
+        const now = Date.now();
+        actualCompletionTime = new Date(Math.max(now, lastActualTime + (5 * 60 * 1000))); // At least 5 min after last
+        lastActualTime = actualCompletionTime.getTime();
       }
     }
 
