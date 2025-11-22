@@ -76,15 +76,27 @@ export class DelayCalculatorService {
       }
     }
     
-    // Check if any event matches completed stages
-    const hasCompletedEvent = shipment.events.some((event) => {
-      const eventStageLower = event.event_stage.toLowerCase();
-      return completedStages.some((stage) =>
+    // Check if the LAST event matches completed stages
+    // Only the last event should indicate completion
+    if (shipment.events.length > 0) {
+      const sortedEvents = [...shipment.events].sort(
+        (a, b) => new Date(a.event_time).getTime() - new Date(b.event_time).getTime(),
+      );
+      const lastEvent = sortedEvents[sortedEvents.length - 1];
+      const eventStageLower = lastEvent.event_stage.toLowerCase();
+      const isCompletedByLastEvent = completedStages.some((stage) =>
         eventStageLower.includes(stage),
       );
-    });
+      
+      if (isCompletedByLastEvent) {
+        // Verify the event time is in the past (actually happened)
+        const eventTime = new Date(lastEvent.event_time);
+        const now = new Date();
+        return eventTime <= now;
+      }
+    }
     
-    return hasCompletedEvent;
+    return false;
   }
 
   /**

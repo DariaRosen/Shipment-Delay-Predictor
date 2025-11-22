@@ -4,7 +4,7 @@ import { IsEnum, IsInt, IsOptional, IsString, Min, Max } from 'class-validator';
 export enum ShipmentStatus {
   ALL = 'all',
   COMPLETED = 'completed',
-  INCOMPLETE = 'incomplete',
+  IN_PROGRESS = 'in_progress',
 }
 
 export class GetShipmentsDto {
@@ -24,7 +24,7 @@ export class GetShipmentsDto {
 
   @IsOptional()
   @IsEnum(ShipmentStatus, {
-    message: 'status must be all, completed, or incomplete',
+    message: 'status must be all, completed, or in_progress',
   })
   status?: ShipmentStatus;
 

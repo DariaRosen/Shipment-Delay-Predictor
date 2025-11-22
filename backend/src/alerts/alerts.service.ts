@@ -376,10 +376,10 @@ export class AlertsService {
       if (filters.status && filters.status !== ShipmentStatus.ALL) {
         const isCompleted = this.delayCalculator.isShipmentCompleted(shipmentData);
         if (filters.status === ShipmentStatus.COMPLETED && !isCompleted) {
-          continue; // Skip incomplete shipments when filtering for completed
+          continue; // Skip in-progress shipments when filtering for completed
         }
-        if (filters.status === ShipmentStatus.INCOMPLETE && isCompleted) {
-          continue; // Skip completed shipments when filtering for incomplete
+        if (filters.status === ShipmentStatus.IN_PROGRESS && isCompleted) {
+          continue; // Skip completed shipments when filtering for in-progress
         }
       }
 

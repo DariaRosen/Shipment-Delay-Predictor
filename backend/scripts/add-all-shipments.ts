@@ -21,6 +21,25 @@ if (!supabaseUrl || !supabaseKey) {
 const supabase = createClient(supabaseUrl, supabaseKey);
 
 /**
+ * Calculate order date from ETA based on typical shipment duration
+ */
+function calculateOrderDateFromEta(eta: Date, mode: string): Date {
+  // Typical shipment durations by mode (in days)
+  const typicalDurations: Record<string, number> = {
+    Air: 5,    // Air shipments typically take 3-7 days
+    Sea: 25,   // Sea shipments typically take 20-30 days
+    Road: 3,   // Road shipments typically take 2-5 days
+  };
+  
+  const typicalDuration = typicalDurations[mode] || 10;
+  // Add some variance: 80-120% of typical duration
+  const variance = 0.8 + Math.random() * 0.4; // 0.8 to 1.2
+  const actualDuration = typicalDuration * variance;
+  
+  return new Date(eta.getTime() - actualDuration * 24 * 60 * 60 * 1000);
+}
+
+/**
  * Add all shipments from sample-alerts.ts to the database
  */
 async function addAllShipments() {
@@ -31,19 +50,51 @@ async function addAllShipments() {
   const eventsToInsert: any[] = [];
 
   for (const alert of sampleAlerts) {
-    // Calculate order date from planned ETA and days to ETA
     const plannedEtaDate = new Date(alert.plannedEta);
-    const orderDate = new Date(
-      plannedEtaDate.getTime() - alert.daysToEta * 24 * 60 * 60 * 1000,
-    );
-
-    // Generate steps for this shipment
-    const steps = alert.steps || generateShipmentSteps(
-      alert.mode,
-      orderDate,
-      plannedEtaDate,
-      alert.currentStage,
-    );
+    
+    // Extract order date from existing steps if available
+    // The first step is usually "order created" and its expectedCompletionTime is the order date
+    let orderDate: Date;
+    let steps = alert.steps;
+    
+    if (steps && steps.length > 0) {
+      // Find the "order created" step and use its expectedCompletionTime as order date
+      const orderCreatedStep = steps.find((step) =>
+        step.stepName.toLowerCase().includes('order has been successfully created'),
+      );
+      
+      if (orderCreatedStep?.expectedCompletionTime) {
+        orderDate = new Date(orderCreatedStep.expectedCompletionTime);
+      } else if (steps[0]?.expectedCompletionTime) {
+        // Fallback: use first step's expected time
+        orderDate = new Date(steps[0].expectedCompletionTime);
+      } else {
+        // Calculate from ETA
+        orderDate = calculateOrderDateFromEta(plannedEtaDate, alert.mode);
+      }
+    } else {
+      // Calculate order date from ETA based on typical shipment duration
+      orderDate = calculateOrderDateFromEta(plannedEtaDate, alert.mode);
+      // Generate steps with calculated order date
+      steps = generateShipmentSteps(
+        alert.mode,
+        orderDate,
+        plannedEtaDate,
+        alert.currentStage,
+      );
+    }
+    
+    // Ensure order date is at least 1 day before ETA (safety check)
+    if (orderDate >= plannedEtaDate) {
+      // If order date is after or equal to ETA, recalculate
+      orderDate = calculateOrderDateFromEta(plannedEtaDate, alert.mode);
+    }
+    
+    // Final safety check: ensure order date is at least 1 day before ETA
+    const oneDayBeforeEta = new Date(plannedEtaDate.getTime() - 24 * 60 * 60 * 1000);
+    if (orderDate >= oneDayBeforeEta) {
+      orderDate = new Date(oneDayBeforeEta.getTime() - 24 * 60 * 60 * 1000);
+    }
 
     shipmentsToInsert.push({
       shipment_id: alert.shipmentId,
