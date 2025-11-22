@@ -124,6 +124,8 @@ export class DelayCalculatorService {
         orderDateForSteps,
         plannedEtaForSteps,
         'Order scheduled', // Use appropriate initial stage for future shipments
+        shipment.origin_city,
+        shipment.dest_city,
       );
       
       // For future shipments, all steps are expected (no actual completion times yet)
@@ -437,6 +439,8 @@ export class DelayCalculatorService {
       orderDateForSteps,
       plannedEtaForSteps,
       latestEvent?.event_stage || shipment.current_status,
+      shipment.origin_city,
+      shipment.dest_city,
     );
     
     // Create a map of actual events by stage name (for matching)
@@ -452,6 +456,9 @@ export class DelayCalculatorService {
     // Merge expected steps with actual events, ensuring chronological order
     // Steps are already in correct order from generateShipmentSteps (stepOrder 1, 2, 3, ...)
     let lastActualTime = orderDateForSteps.getTime();
+    let lastCompletedStepIndex = -1; // Track the index of the last completed step
+    let lastExpectedTime = orderDateForSteps.getTime(); // Track expected time for future steps
+    
     const steps = allExpectedSteps.map((expectedStep, index) => {
       // First step (order created) always uses order date as actual time
       if (index === 0 || expectedStep.stepOrder === 1) {
@@ -505,11 +512,23 @@ export class DelayCalculatorService {
         
         // Update lastActualTime to ensure next step is after this one
         lastActualTime = eventTime;
+        lastCompletedStepIndex = index; // Track this as the last completed step
+        lastExpectedTime = eventTime; // Update expected time base to actual completion time
+        
+        // Also adjust expected time if it's before the actual time
+        let adjustedExpectedTime = expectedStep.expectedCompletionTime;
+        if (adjustedExpectedTime) {
+          const expectedTimeMs = new Date(adjustedExpectedTime).getTime();
+          if (expectedTimeMs < eventTime) {
+            // Expected time should be at or after actual time
+            adjustedExpectedTime = new Date(eventTime).toISOString();
+          }
+        }
         
         return {
           stepName: expectedStep.stepName,
           stepDescription: expectedStep.stepDescription || latestMatchingEvent.description,
-          expectedCompletionTime: expectedStep.expectedCompletionTime,
+          expectedCompletionTime: adjustedExpectedTime,
           actualCompletionTime: new Date(eventTime).toISOString(),
           stepOrder: expectedStep.stepOrder, // Preserve original step order
           location: latestMatchingEvent.location || expectedStep.location,
@@ -517,10 +536,49 @@ export class DelayCalculatorService {
       }
       
       // No matching event - use expected step as-is (for future steps)
-      // But if it has an actual completion time from generation, ensure chronological order
+      // But adjust expected time to be after the last completed step
+      const minTimeGap = 5 * 60 * 1000; // 5 minutes in milliseconds
+      const expectedTime = expectedStep.expectedCompletionTime 
+        ? new Date(expectedStep.expectedCompletionTime).getTime()
+        : null;
+      
+      // If this is a future step (after a completed step), recalculate expected time
+      // based on the last completed step, not the original ETA
+      if (lastCompletedStepIndex >= 0 && index > lastCompletedStepIndex) {
+        // Calculate expected time based on step duration from the previous step's expected time
+        const stepDurationHours = this.getStepDuration(expectedStep.stepName, shipment.mode);
+        const adjustedExpectedTime = lastExpectedTime + (stepDurationHours * 60 * 60 * 1000);
+        lastExpectedTime = adjustedExpectedTime; // Update for next step
+        
+        return {
+          ...expectedStep,
+          expectedCompletionTime: new Date(adjustedExpectedTime).toISOString(),
+          actualCompletionTime: expectedStep.actualCompletionTime, // Keep if exists
+        };
+      }
+      
+      // If expected time is before or equal to the last actual time, adjust it
+      if (expectedTime && expectedTime <= lastActualTime) {
+        // Calculate a realistic expected time based on step duration
+        const stepDurationHours = this.getStepDuration(expectedStep.stepName, shipment.mode);
+        const adjustedExpectedTime = lastExpectedTime + (stepDurationHours * 60 * 60 * 1000);
+        lastExpectedTime = adjustedExpectedTime; // Update for next step
+        
+        return {
+          ...expectedStep,
+          expectedCompletionTime: new Date(adjustedExpectedTime).toISOString(),
+          actualCompletionTime: expectedStep.actualCompletionTime, // Keep if exists
+        };
+      }
+      
+      // Update lastExpectedTime for steps that don't need adjustment
+      if (expectedTime) {
+        lastExpectedTime = expectedTime;
+      }
+      
+      // If it has an actual completion time from generation, ensure chronological order
       if (expectedStep.actualCompletionTime) {
         const actualTime = new Date(expectedStep.actualCompletionTime).getTime();
-        const minTimeGap = 5 * 60 * 1000; // 5 minutes in milliseconds
         if (actualTime <= lastActualTime) {
           const adjustedTime = lastActualTime + minTimeGap;
           lastActualTime = adjustedTime;
@@ -674,46 +732,89 @@ export class DelayCalculatorService {
   }
   
   /**
+   * Get expected duration for a step based on mode
+   */
+  private getStepDuration(stepName: string, mode: string): number {
+    const stepNameLower = stepName.toLowerCase();
+    
+    // Road steps
+    if (mode.toLowerCase() === 'road') {
+      if (stepNameLower.includes('border inspection')) return 12;
+      if (stepNameLower.includes('regional carrier facility')) return 6;
+      if (stepNameLower.includes('pick-up point')) return 4;
+      if (stepNameLower.includes('awaiting pickup')) return 0;
+    }
+    
+    // Air steps
+    if (mode.toLowerCase() === 'air') {
+      if (stepNameLower.includes('arrived at customs')) return 0; // Instant
+      if (stepNameLower.includes('customs clearance')) return 24;
+      if (stepNameLower.includes('regional carrier facility')) return 6;
+      if (stepNameLower.includes('pick-up point')) return 4;
+      if (stepNameLower.includes('awaiting pickup')) return 0;
+    }
+    
+    // Sea steps
+    if (mode.toLowerCase() === 'sea') {
+      if (stepNameLower.includes('arrived at customs')) return 0; // Instant
+      if (stepNameLower.includes('customs clearance')) return 48;
+      if (stepNameLower.includes('regional carrier facility')) return 12;
+      if (stepNameLower.includes('pick-up point')) return 8;
+      if (stepNameLower.includes('awaiting pickup')) return 0;
+    }
+    
+    // Default: 2 hours for most processing steps
+    return 2;
+  }
+
+  /**
    * Calculate how long shipment has been in the same step/stage
-   * Returns the number of days since the last event that matches the current stage
+   * Returns the number of days since the first event that matches the current stage
+   * (to detect if shipment is stuck in the same stage)
    */
   private calculateStageDwellTime(events: ShipmentEvent[], currentStage?: string): number {
     if (!currentStage || events.length === 0) return 0;
     
-    // Sort events by time (newest first)
+    // Sort events by time (oldest first)
     const sortedEvents = [...events].sort(
-      (a, b) => new Date(b.event_time).getTime() - new Date(a.event_time).getTime(),
+      (a, b) => new Date(a.event_time).getTime() - new Date(b.event_time).getTime(),
     );
     
-    // Find the most recent event that matches the current stage
-    // Use case-insensitive comparison and check if stage names match
+    // Find all events that match the current stage
     const currentStageLower = currentStage.toLowerCase();
-    const matchingEvent = sortedEvents.find(e => 
+    const matchingEvents = sortedEvents.filter(e => 
       e.event_stage.toLowerCase() === currentStageLower ||
       e.event_stage.toLowerCase().includes(currentStageLower) ||
       currentStageLower.includes(e.event_stage.toLowerCase())
     );
     
-    if (!matchingEvent) return 0;
+    if (matchingEvents.length === 0) return 0;
     
-    const stageStartTime = new Date(matchingEvent.event_time);
-    const now = new Date();
-    const daysSinceLastEvent = (now.getTime() - stageStartTime.getTime()) / (1000 * 60 * 60 * 24);
+    // Get the first (earliest) event in this stage
+    const firstEventInStage = matchingEvents[0];
+    const stageStartTime = new Date(firstEventInStage.event_time);
     
-    // Check if there are any newer events that indicate the shipment moved to a different stage
-    const newerEvents = sortedEvents.filter(e => 
-      new Date(e.event_time).getTime() > stageStartTime.getTime() &&
-      e.event_stage.toLowerCase() !== currentStageLower &&
-      !e.event_stage.toLowerCase().includes(currentStageLower) &&
-      !currentStageLower.includes(e.event_stage.toLowerCase())
-    );
+    // Get the latest event overall to see if shipment moved
+    const latestEventOverall = sortedEvents[sortedEvents.length - 1];
+    const latestEventTime = new Date(latestEventOverall.event_time);
     
-    // If there are newer events in different stages, the shipment is not stuck
-    if (newerEvents.length > 0) {
+    // Check if the latest event is still in the same stage
+    const latestEventStageLower = latestEventOverall.event_stage.toLowerCase();
+    const isStillInSameStage = 
+      latestEventStageLower === currentStageLower ||
+      latestEventStageLower.includes(currentStageLower) ||
+      currentStageLower.includes(latestEventStageLower);
+    
+    // If shipment moved to a different stage, it's not stuck
+    if (!isStillInSameStage) {
       return 0;
     }
     
-    return daysSinceLastEvent;
+    // Calculate dwell time from the first event in this stage to now
+    const now = new Date();
+    const daysSinceFirstEvent = (now.getTime() - stageStartTime.getTime()) / (1000 * 60 * 60 * 24);
+    
+    return daysSinceFirstEvent;
   }
 
   /**
@@ -757,10 +858,20 @@ export class DelayCalculatorService {
       return false;
     }
 
+    // Get the latest event's stage (more accurate than current_status)
+    let stageToCheck = shipment.current_status;
+    if (shipment.events.length > 0) {
+      const sortedEvents = [...shipment.events].sort(
+        (a, b) => new Date(b.event_time).getTime() - new Date(a.event_time).getTime(),
+      );
+      stageToCheck = sortedEvents[0].event_stage;
+    }
+
     // Condition 1: Check if stuck in the same step/stage for more than 30 days
+    // Use the latest event's stage instead of current_status for more accurate detection
     const dwellTime = this.calculateStageDwellTime(
       shipment.events,
-      shipment.current_status,
+      stageToCheck,
     );
     
     // Condition 2: Check if 14+ days past expected delivery date (ETA)

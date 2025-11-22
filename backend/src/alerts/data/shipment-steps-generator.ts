@@ -1,5 +1,6 @@
 import { ShipmentStep } from '../types/alert-shipment.interface';
 import { Mode } from '../types/alert-shipment.interface';
+import { calculateCityDistance } from '../utils/distance-calculator';
 
 interface StepTemplate {
   name: string;
@@ -94,34 +95,106 @@ export function generateShipmentSteps(
   orderCreatedAt: Date,
   plannedEta: Date,
   currentStage: string,
+  originCity?: string,
+  destCity?: string,
 ): ShipmentStep[] {
   const templates = getStepsForMode(mode);
   const steps: ShipmentStep[] = [];
   let currentTime = new Date(orderCreatedAt);
   const totalDuration = plannedEta.getTime() - orderCreatedAt.getTime();
-  const totalExpectedHours = templates.reduce((sum, t) => sum + t.expectedDurationHours, 0);
+  
+  // Calculate distance if cities are provided
+  let distance: number | null = null;
+  if (originCity && destCity) {
+    distance = calculateCityDistance(originCity, destCity);
+  }
+  
+  // Calculate realistic transit time based on distance and mode
+  let transitTimeHours = 0;
+  if (distance !== null) {
+    if (mode === 'Air') {
+      // Air: ~800-900 km/h average speed (including ground time)
+      transitTimeHours = Math.max(6, Math.ceil(distance / 800)); // Minimum 6 hours
+    } else if (mode === 'Sea') {
+      // Sea: ~20-25 km/h average speed
+      transitTimeHours = Math.max(24, Math.ceil(distance / 22)); // Minimum 24 hours
+    } else if (mode === 'Road') {
+      // Road: ~60-80 km/h average speed (including stops)
+      transitTimeHours = Math.max(8, Math.ceil(distance / 70)); // Minimum 8 hours
+    }
+  }
+  
+  // Adjust step templates with realistic transit times
+  const adjustedTemplates = templates.map((template, index) => {
+    let adjustedDuration = template.expectedDurationHours;
+    
+    // For transit steps, use calculated transit time based on distance
+    const isTransitStep = 
+      template.name.toLowerCase().includes('transit') || 
+      template.name.toLowerCase().includes('at sea') ||
+      (mode === 'Road' && template.name === 'In transit') ||
+      (mode === 'Air' && (template.name.includes('leaving origin') || template.name.includes('arrived at local airport')));
+    
+    if (isTransitStep && transitTimeHours > 0) {
+      adjustedDuration = transitTimeHours;
+    }
+    
+    // Ensure minimum realistic durations for all steps
+    // Processing steps should have at least some time
+    if (adjustedDuration === 0 && !template.name.toLowerCase().includes('awaiting') && 
+        !template.name.toLowerCase().includes('received by customer') &&
+        !template.name.toLowerCase().includes('order has been successfully created')) {
+      // Instant steps (like "departed", "crossed border") can be 0, but others need minimum time
+      if (template.name.toLowerCase().includes('departed') || 
+          template.name.toLowerCase().includes('crossed') ||
+          template.name.toLowerCase().includes('leaving')) {
+        adjustedDuration = 0; // These can be instant
+      } else {
+        adjustedDuration = 0.5; // Minimum 30 minutes for other steps
+      }
+    }
+    
+    return { ...template, expectedDurationHours: adjustedDuration };
+  });
+  
+  const totalExpectedHours = adjustedTemplates.reduce((sum, t) => sum + t.expectedDurationHours, 0);
 
   // Find the index of the current stage
-  const currentStageIndex = templates.findIndex((t) =>
+  const currentStageIndex = adjustedTemplates.findIndex((t) =>
     currentStage.toLowerCase().includes(t.name.toLowerCase().substring(0, 20)),
   );
-  const activeStepIndex = currentStageIndex >= 0 ? currentStageIndex : Math.floor(templates.length * 0.7);
+  const activeStepIndex = currentStageIndex >= 0 ? currentStageIndex : Math.floor(adjustedTemplates.length * 0.7);
 
   let lastActualTime = orderCreatedAt.getTime(); // Track the last actual completion time
 
-  templates.forEach((template, index) => {
+  adjustedTemplates.forEach((template, index) => {
     const isCompleted = index < activeStepIndex;
     const isInProgress = index === activeStepIndex;
     const isPending = index > activeStepIndex;
 
+    // Get the adjusted duration for this step
+    const stepDurationHours = template.expectedDurationHours;
+    
     // Calculate expected completion time based on cumulative duration
-    const cumulativeHours = templates
+    const cumulativeHours = adjustedTemplates
       .slice(0, index + 1)
       .reduce((sum, t) => sum + t.expectedDurationHours, 0);
-    const progressRatio = cumulativeHours / totalExpectedHours;
+    
+    // Ensure we have a minimum total duration based on distance
+    const minTotalHours = distance !== null && transitTimeHours > 0 
+      ? Math.max(totalExpectedHours, transitTimeHours + 24) // At least transit time + 24 hours for processing
+      : totalExpectedHours;
+    
+    const progressRatio = cumulativeHours / Math.max(totalExpectedHours, minTotalHours);
     const expectedCompletionTime = new Date(
       orderCreatedAt.getTime() + totalDuration * progressRatio,
     );
+    
+    // Ensure minimum realistic time gaps between steps
+    // Convert step duration to milliseconds
+    const minStepDurationMs = stepDurationHours > 0 
+      ? stepDurationHours * 60 * 60 * 1000 // Convert hours to milliseconds
+      : 5 * 60 * 1000; // Minimum 5 minutes for instant steps
 
     // Calculate actual completion time (if completed)
     let actualCompletionTime: Date | undefined;
@@ -132,17 +205,17 @@ export function generateShipmentSteps(
       lastActualTime = orderCreatedAt.getTime();
     } else if (isCompleted) {
       // Use the expected time as base, but ensure minimum time gap from previous step
-      const minTimeGapMinutes = Math.max(
-        template.expectedDurationHours * 60, // At least the expected duration
-        5, // Minimum 5 minutes between steps
+      const minTimeGapMs = Math.max(
+        minStepDurationMs, // At least the expected duration
+        5 * 60 * 1000, // Minimum 5 minutes between steps
       );
       
       // Calculate base actual time (with small variance)
       const variance = (Math.random() - 0.5) * 0.1; // ±5% variance
       let baseActualTime = expectedCompletionTime.getTime() + totalDuration * variance * progressRatio;
       
-      // Ensure minimum gap from previous step
-      const minActualTime = lastActualTime + (minTimeGapMinutes * 60 * 1000);
+      // Ensure minimum gap from previous step - this is critical for realistic timelines
+      const minActualTime = lastActualTime + minTimeGapMs;
       if (baseActualTime < minActualTime) {
         baseActualTime = minActualTime;
       }

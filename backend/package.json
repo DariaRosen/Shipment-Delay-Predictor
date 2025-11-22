@@ -26,6 +26,12 @@
     "add:in-progress": "ts-node -r dotenv/config scripts/add-more-in-progress-shipments.ts",
     "add:healthy": "ts-node -r dotenv/config scripts/add-healthy-in-progress-shipments.ts",
     "fix:healthy": "ts-node -r dotenv/config scripts/fix-healthy-shipments-no-alerts.ts",
+    "fix:steps": "ts-node -r dotenv/config scripts/fix-shipment-steps-timings.ts",
+    "fix:ld1016": "ts-node -r dotenv/config scripts/fix-ld1016-cancel.ts",
+    "fix:ld1019": "ts-node -r dotenv/config scripts/fix-ld1019-cancel.ts",
+    "fix:event-dates": "ts-node -r dotenv/config scripts/fix-all-incorrect-event-dates.ts",
+    "find:cancel": "ts-node -r dotenv/config scripts/find-shipments-to-cancel.ts",
+    "fix:all-canceled": "ts-node -r dotenv/config scripts/fix-all-canceled-shipments.ts",
     "fix:ld1018": "ts-node -r dotenv/config scripts/fix-ld1018.ts",
     "seed:steps": "ts-node -r dotenv/config scripts/seed-steps-catalog.ts",
     "migrate:steps": "ts-node -r dotenv/config scripts/migrate-to-steps-based.ts"
