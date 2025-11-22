@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useMemo } from 'react'
+import { useRouter } from 'next/navigation'
 import { useAlerts } from '@/hooks/use-alerts'
 import { AlertsTable } from '@/components/tables/alerts-table'
 import { AlertsFilters } from '@/components/alerts/alerts-filters'
@@ -10,6 +11,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { format } from 'date-fns'
 
 export default function AlertsPage() {
+  const router = useRouter()
   const [filters, setFilters] = useState<FiltersType>({})
 
   const { data, isLoading, error, dataUpdatedAt } = useAlerts(filters)
@@ -21,8 +23,7 @@ export default function AlertsPage() {
   )
 
   const handleRowClick = (shipmentId: string) => {
-    // Navigate to detail page
-    console.log('Navigate to:', shipmentId)
+    router.push(`/shipment/${shipmentId}`)
   }
 
   if (error) {

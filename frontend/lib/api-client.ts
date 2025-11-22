@@ -25,6 +25,14 @@ export const apiClient = {
     return response.json()
   },
 
+  async getShipment(shipmentId: string): Promise<AlertShipment> {
+    const response = await fetch(`${API_BASE_URL}/alerts/${shipmentId}`)
+    if (!response.ok) {
+      throw new Error('Failed to fetch shipment')
+    }
+    return response.json()
+  },
+
   async acknowledgeAlert(shipmentId: string, userId: string): Promise<void> {
     const response = await fetch(`${API_BASE_URL}/alerts/acknowledge`, {
       method: 'POST',
