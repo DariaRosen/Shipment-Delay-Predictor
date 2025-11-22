@@ -14,7 +14,7 @@ export const MainNav = () => {
   const pathname = usePathname()
 
   return (
-    <nav className="border-b bg-[#F8F8F8]">
+    <nav className="border-b border-teal-200 bg-white">
       <div className="container mx-auto flex h-20 items-center px-4">
         <Link href="/" className="mr-6 flex items-center gap-3">
           <LogoWithTransparentBg
@@ -30,6 +30,11 @@ export const MainNav = () => {
               key={item.href}
               asChild
               variant={pathname === item.href ? 'default' : 'ghost'}
+              className={
+                pathname === item.href
+                  ? 'bg-[#0F766E] hover:bg-[#0D9488] text-white'
+                  : 'text-slate-600 hover:text-teal-700 hover:bg-teal-50'
+              }
             >
               <Link href={item.href}>{item.label}</Link>
             </Button>
