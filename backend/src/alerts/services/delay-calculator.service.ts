@@ -316,7 +316,7 @@ export class DelayCalculatorService {
       // Add refund step as the last step
       const refundStep = {
         stepName: 'Refund customer',
-        stepDescription: 'Shipment was lost or stuck for more than 3 days. Refund has been processed.',
+        stepDescription: 'Shipment was lost or stuck in the same step for more than 30 days. Refund has been processed.',
         expectedCompletionTime: new Date().toISOString(),
         actualCompletionTime: new Date().toISOString(),
         stepOrder: finalSteps.length + 1,
@@ -351,25 +351,50 @@ export class DelayCalculatorService {
   }
   
   /**
-   * Calculate how long shipment has been in current stage
+   * Calculate how long shipment has been in the same step/stage
+   * Returns the number of days since the last event that matches the current stage
    */
   private calculateStageDwellTime(events: ShipmentEvent[], currentStage?: string): number {
     if (!currentStage || events.length === 0) return 0;
     
-    // Find when current stage started
-    const stageEvents = events
-      .filter(e => e.event_stage === currentStage)
-      .sort((a, b) => new Date(a.event_time).getTime() - new Date(b.event_time).getTime());
+    // Sort events by time (newest first)
+    const sortedEvents = [...events].sort(
+      (a, b) => new Date(b.event_time).getTime() - new Date(a.event_time).getTime(),
+    );
     
-    if (stageEvents.length === 0) return 0;
+    // Find the most recent event that matches the current stage
+    // Use case-insensitive comparison and check if stage names match
+    const currentStageLower = currentStage.toLowerCase();
+    const matchingEvent = sortedEvents.find(e => 
+      e.event_stage.toLowerCase() === currentStageLower ||
+      e.event_stage.toLowerCase().includes(currentStageLower) ||
+      currentStageLower.includes(e.event_stage.toLowerCase())
+    );
     
-    const stageStartTime = new Date(stageEvents[0].event_time);
+    if (!matchingEvent) return 0;
+    
+    const stageStartTime = new Date(matchingEvent.event_time);
     const now = new Date();
-    return (now.getTime() - stageStartTime.getTime()) / (1000 * 60 * 60 * 24); // days
+    const daysSinceLastEvent = (now.getTime() - stageStartTime.getTime()) / (1000 * 60 * 60 * 24);
+    
+    // Check if there are any newer events that indicate the shipment moved to a different stage
+    const newerEvents = sortedEvents.filter(e => 
+      new Date(e.event_time).getTime() > stageStartTime.getTime() &&
+      e.event_stage.toLowerCase() !== currentStageLower &&
+      !e.event_stage.toLowerCase().includes(currentStageLower) &&
+      !currentStageLower.includes(e.event_stage.toLowerCase())
+    );
+    
+    // If there are newer events in different stages, the shipment is not stuck
+    if (newerEvents.length > 0) {
+      return 0;
+    }
+    
+    return daysSinceLastEvent;
   }
 
   /**
-   * Check if shipment is stuck in a stage for more than 3 days (likely lost)
+   * Check if shipment is stuck in the same step for more than 30 days (likely lost)
    */
   isShipmentCanceled(shipment: ShipmentData): boolean {
     // Check if already marked as canceled
@@ -394,14 +419,14 @@ export class DelayCalculatorService {
       }
     }
 
-    // Check if stuck in current stage for more than 3 days
+    // Check if stuck in the same step/stage for more than 30 days
     const dwellTime = this.calculateStageDwellTime(
       shipment.events,
       shipment.current_status,
     );
     
-    // If stuck for more than 3 days and not completed, consider it canceled
-    if (dwellTime > 3 && !this.isShipmentCompleted(shipment)) {
+    // If stuck in the same step for more than 30 days and not completed, consider it canceled
+    if (dwellTime > 30 && !this.isShipmentCompleted(shipment)) {
       return true;
     }
 

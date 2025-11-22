@@ -22,6 +22,7 @@
     "migrate:normalized": "ts-node -r dotenv/config scripts/migrate-to-normalized.ts",
     "fix:timestamps": "ts-node -r dotenv/config scripts/fix-event-timestamps.ts",
     "add:shipments": "ts-node -r dotenv/config scripts/add-all-shipments.ts",
+    "add:canceled": "ts-node -r dotenv/config scripts/add-canceled-shipments.ts",
     "seed:steps": "ts-node -r dotenv/config scripts/seed-steps-catalog.ts",
     "migrate:steps": "ts-node -r dotenv/config scripts/migrate-to-steps-based.ts"
   },
