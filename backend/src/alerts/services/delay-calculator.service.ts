@@ -547,6 +547,35 @@ export class DelayCalculatorService {
       if (lastCompletedStepIndex >= 0 && index > lastCompletedStepIndex) {
         // Calculate expected time based on step duration from the previous step's expected time
         const stepDurationHours = this.getStepDuration(expectedStep.stepName, shipment.mode);
+        
+        // Special handling: if last completed step was "Arrived at customs", 
+        // the next step should happen shortly after (within hours, not days)
+        const lastCompletedStep = allExpectedSteps[lastCompletedStepIndex];
+        const lastStepNameLower = lastCompletedStep.stepName.toLowerCase();
+        const currentStepNameLower = expectedStep.stepName.toLowerCase();
+        
+        if (lastStepNameLower.includes('arrived at customs')) {
+          // After arriving at customs, the next step should happen within hours
+          // Override the step duration to be more realistic (1-4 hours instead of 24 hours)
+          let adjustedDurationHours = stepDurationHours;
+          
+          // "Your package will soon be handed over to the domestic courier company" 
+          // should happen within hours, not 24 hours
+          if (currentStepNameLower.includes('your package will soon be handed over') ||
+              currentStepNameLower.includes('import customs clearance started')) {
+            adjustedDurationHours = 1; // 1 hour after arrival
+          }
+          
+          const adjustedExpectedTime = lastActualTime + (adjustedDurationHours * 60 * 60 * 1000);
+          lastExpectedTime = adjustedExpectedTime;
+          
+          return {
+            ...expectedStep,
+            expectedCompletionTime: new Date(adjustedExpectedTime).toISOString(),
+            actualCompletionTime: expectedStep.actualCompletionTime, // Keep if exists
+          };
+        }
+        
         const adjustedExpectedTime = lastExpectedTime + (stepDurationHours * 60 * 60 * 1000);
         lastExpectedTime = adjustedExpectedTime; // Update for next step
         
@@ -748,7 +777,11 @@ export class DelayCalculatorService {
     // Air steps
     if (mode.toLowerCase() === 'air') {
       if (stepNameLower.includes('arrived at customs')) return 0; // Instant
-      if (stepNameLower.includes('customs clearance')) return 24;
+      // Import customs clearance started (destination) should happen immediately after arriving at customs
+      if (stepNameLower.includes('import customs clearance started')) return 0; // Instant - happens right after arrival
+      // Import customs clearance completed takes time
+      if (stepNameLower.includes('import customs clearance completed')) return 24; // 24 hours for air
+      if (stepNameLower.includes('customs clearance')) return 24; // Other customs steps
       if (stepNameLower.includes('regional carrier facility')) return 6;
       if (stepNameLower.includes('pick-up point')) return 4;
       if (stepNameLower.includes('awaiting pickup')) return 0;
