@@ -140,6 +140,26 @@ export function ShipmentTimeline({ steps, plannedEta, currentStage }: ShipmentTi
     return Math.floor(diffHours / 24)
   }
 
+  // Calculate delay days for incomplete steps (today - expected)
+  const getDelayDaysForIncomplete = (step: ShipmentStep): number | null => {
+    // Only calculate for steps without actual completion time
+    if (step.actualCompletionTime) return null
+    if (!step.expectedCompletionTime) return null
+    
+    const expected = new Date(step.expectedCompletionTime)
+    const now = getNow()
+    const diffMs = now.getTime() - expected.getTime()
+    
+    // Only return delay if expected time is in the past (with 1 minute buffer)
+    if (diffMs < 60000) return null // Less than 1 minute past expected = no delay
+    
+    const diffHours = diffMs / (1000 * 60 * 60)
+    // Only return delay days if it's 24 hours or more
+    if (diffHours < 24) return null
+    // Use Math.floor to get the actual number of full days
+    return Math.floor(diffHours / 24)
+  }
+
   if (steps.length === 0) {
     return (
       <div className="text-center py-8 text-muted-foreground">
@@ -166,6 +186,7 @@ export function ShipmentTimeline({ steps, plannedEta, currentStage }: ShipmentTi
           const status = getStepStatus(normalizedStep, index)
           const isDelayed = isStepDelayed(normalizedStep)
           const delayDays = getDelayDays(normalizedStep)
+          const delayDaysIncomplete = getDelayDaysForIncomplete(normalizedStep)
           const daysUntilExpected = getDaysUntilExpected(normalizedStep)
           const isUpcoming = status === 'upcoming'
 
@@ -205,6 +226,11 @@ export function ShipmentTimeline({ steps, plannedEta, currentStage }: ShipmentTi
                       {isDelayed && (
                         <Badge variant="destructive" className="text-xs">
                           {delayDays} day{delayDays !== 1 ? 's' : ''} delay
+                        </Badge>
+                      )}
+                      {delayDaysIncomplete !== null && delayDaysIncomplete > 0 && (
+                        <Badge variant="destructive" className="text-xs">
+                          {delayDaysIncomplete} day{delayDaysIncomplete !== 1 ? 's' : ''} delay
                         </Badge>
                       )}
                       {status === 'in-progress' && (

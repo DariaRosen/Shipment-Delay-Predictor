@@ -352,6 +352,57 @@ export class DelayCalculatorService {
     // Ensure steps are sorted by stepOrder (should already be, but enforce it)
     steps.sort((a, b) => a.stepOrder - b.stepOrder);
     
+    // Infer completion for required earlier steps when later steps are completed
+    // This ensures logical consistency (e.g., if "Import customs clearance started" is completed,
+    // then "Arrived at customs" must have been completed first)
+    const minTimeGap = 5 * 60 * 1000; // 5 minutes
+    const orderDateMs = orderDateForSteps.getTime();
+    
+    // Iterate forward through steps
+    for (let i = 0; i < steps.length; i++) {
+      const currentStep = steps[i];
+      
+      // If this step has an actual completion time, check if earlier steps need inference
+      if (currentStep.actualCompletionTime) {
+        const currentTime = new Date(currentStep.actualCompletionTime).getTime();
+        
+        // Work backwards from current step to fill in missing earlier steps
+        let lastKnownTime = currentTime;
+        for (let j = i - 1; j >= 0; j--) {
+          const earlierStep = steps[j];
+          if (!earlierStep.actualCompletionTime) {
+            // Infer that the earlier step was completed just before the last known step
+            let inferredTime = lastKnownTime - minTimeGap;
+            
+            // Ensure it's after the previous step (if it exists and has a time)
+            if (j > 0) {
+              const previousStep = steps[j - 1];
+              if (previousStep.actualCompletionTime) {
+                const previousTime = new Date(previousStep.actualCompletionTime).getTime();
+                // Ensure inferred time is at least minTimeGap after the previous step
+                if (inferredTime <= previousTime) {
+                  inferredTime = previousTime + minTimeGap;
+                }
+              }
+            }
+            
+            // Ensure it's not before the order date
+            if (inferredTime >= orderDateMs && inferredTime < lastKnownTime) {
+              earlierStep.actualCompletionTime = new Date(inferredTime).toISOString();
+              lastKnownTime = inferredTime;
+            } else {
+              // Can't infer without violating constraints, stop inferring
+              break;
+            }
+          } else {
+            // Earlier step already has a time, use it as the new reference
+            lastKnownTime = new Date(earlierStep.actualCompletionTime).getTime();
+            break;
+          }
+        }
+      }
+    }
+    
     // Check if shipment is canceled (stuck >3 days)
     const isCanceled = this.isShipmentCanceled(shipment);
     let finalCurrentStage = latestEvent?.event_stage || shipment.current_status;
