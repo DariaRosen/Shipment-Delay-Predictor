@@ -6,14 +6,50 @@ NestJS service that powers the LogiDog Shipment Delay Predictor. It exposes aler
 
 - **Framework**: NestJS 11 + TypeScript
 - **Validation**: `class-validator` + `class-transformer`
-- **Data**: In-memory seed (`sample-alerts.ts`) that mirrors the structure expected by the frontend
+- **Database**: Supabase (PostgreSQL) for persistent storage
+- **Data**: Migrated from in-memory seed to Supabase database
 - **Routing**: Global prefix `/api` (e.g. `http://localhost:3001/api/alerts`)
 
 ## 🚀 Getting Started
 
+### Prerequisites
+
+1. Create a Supabase project at [supabase.com](https://supabase.com)
+2. Get your project URL and service role key from the Supabase dashboard
+
+### Setup
+
+1. **Install dependencies:**
 ```bash
 cd backend
 npm install
+```
+
+2. **Configure environment variables:**
+```bash
+cp .env.example .env
+```
+
+Edit `.env` and add your Supabase credentials:
+```env
+SUPABASE_URL=your_supabase_project_url
+SUPABASE_SERVICE_ROLE_KEY=your_supabase_service_role_key
+PORT=3001
+```
+
+3. **Set up the database schema:**
+   - Go to your Supabase project dashboard
+   - Navigate to SQL Editor
+   - Copy and paste the contents of `supabase/schema.sql`
+   - Run the SQL to create the tables
+
+4. **Seed the database with sample data:**
+```bash
+npm run migrate:supabase
+```
+
+5. **Start the development server:**
+```bash
 npm run start:dev
 ```
 
@@ -100,20 +136,26 @@ npm run test:e2e
 backend/
 ├── src/
 │   ├── alerts/               # Alerts module, controller, service, DTOs
+│   ├── supabase/             # Supabase service and module
 │   ├── app.module.ts
 │   ├── app.controller.ts
 │   ├── app.service.ts
 │   └── main.ts               # bootstrap, global prefix, validation
+├── supabase/
+│   └── schema.sql            # Database schema for Supabase
+├── scripts/
+│   └── migrate-to-supabase.ts # Data migration script
 ├── test/                     # e2e tests (default Nest setup)
 └── package.json
 ```
 
 ## 🔄 Next Steps
 
-- Replace in-memory `sampleAlerts` with PostgreSQL/Redis sources
-- Wire real-time updates via SSE/WebSockets
+- ✅ Migrated to Supabase (PostgreSQL) for persistent storage
+- Wire real-time updates via Supabase Realtime subscriptions
 - Implement rule engine + ML scoring inputs
-- Add authentication and per-user acknowledgements
+- Add authentication using Supabase Auth
+- Add per-user acknowledgements with proper authorization
 
 ---
 

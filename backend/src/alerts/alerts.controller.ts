@@ -8,17 +8,17 @@ export class AlertsController {
   constructor(private readonly alertsService: AlertsService) {}
 
   @Get()
-  findAll(@Query() query: GetAlertsDto) {
+  async findAll(@Query() query: GetAlertsDto) {
     return this.alertsService.findAll(query);
   }
 
   @Get(':shipmentId')
-  findOne(@Param('shipmentId') shipmentId: string) {
+  async findOne(@Param('shipmentId') shipmentId: string) {
     return this.alertsService.findOne(shipmentId);
   }
 
   @Post('acknowledge')
-  acknowledge(@Body() body: AcknowledgeAlertDto) {
+  async acknowledge(@Body() body: AcknowledgeAlertDto) {
     return this.alertsService.acknowledge(body);
   }
 }
