@@ -49,6 +49,7 @@ const SEA_STEPS: StepTemplate[] = [
   { name: 'In transit at sea', description: '', expectedDurationHours: 0 },
   { name: 'Vessel arrived at destination port', description: '', expectedDurationHours: 0 },
   { name: 'Container unloaded from vessel', description: '', expectedDurationHours: 12 },
+  { name: 'Arrived at customs', description: '', expectedDurationHours: 0 },
   { name: 'Import customs clearance started', description: '', expectedDurationHours: 48 },
   { name: 'Import customs clearance completed', description: '', expectedDurationHours: 4 },
   { name: 'Package arrived at regional carrier facility', description: '', expectedDurationHours: 12 },

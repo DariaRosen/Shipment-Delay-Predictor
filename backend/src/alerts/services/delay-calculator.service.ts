@@ -253,8 +253,19 @@ export class DelayCalculatorService {
       }
       
       // Try to find matching event(s) for this step
+      // Use exact match first, then try partial matching
       const stepNameLower = expectedStep.stepName.toLowerCase();
-      const matchingEvents = eventsByStage.get(stepNameLower) || [];
+      let matchingEvents = eventsByStage.get(stepNameLower) || [];
+      
+      // If no exact match, try partial matching (step name contains event stage or vice versa)
+      if (matchingEvents.length === 0) {
+        for (const [eventStageKey, events] of eventsByStage.entries()) {
+          if (stepNameLower.includes(eventStageKey) || eventStageKey.includes(stepNameLower)) {
+            matchingEvents = events;
+            break;
+          }
+        }
+      }
       
       // If we have matching events, use the latest one as actual completion time
       if (matchingEvents.length > 0) {
@@ -264,12 +275,22 @@ export class DelayCalculatorService {
         
         let eventTime = new Date(latestMatchingEvent.event_time).getTime();
         
-        // Ensure minimum time gap from previous step (at least 5 minutes)
+        // Ensure chronological order: event time must be after previous step's time
+        // Only ensure it's not before the order date (which would be invalid)
+        const orderDateMs = orderDateForSteps.getTime();
         const minTimeGap = 5 * 60 * 1000; // 5 minutes in milliseconds
+        
+        if (eventTime < orderDateMs) {
+          // If event time is before order date, use order date + minimum gap
+          eventTime = orderDateMs + minTimeGap;
+        }
+        
+        // Ensure this step happens after the previous step (chronological order)
         if (eventTime <= lastActualTime) {
           eventTime = lastActualTime + minTimeGap;
         }
         
+        // Update lastActualTime to ensure next step is after this one
         lastActualTime = eventTime;
         
         return {

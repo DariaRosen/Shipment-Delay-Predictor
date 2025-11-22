@@ -68,9 +68,14 @@ export function ShipmentTimeline({ steps, plannedEta, currentStage }: ShipmentTi
       }
       
       // Actual time is in the past - step is completed
-      // Check if it was delayed
+      // Check if it was delayed (24 hours or more)
       if (expectedTime && actualTime > expectedTime) {
-        return 'delayed'
+        const diffMs = actualTime.getTime() - expectedTime.getTime()
+        const diffHours = diffMs / (1000 * 60 * 60)
+        // Only mark as delayed if it's 24 hours or more
+        if (diffHours >= 24) {
+          return 'delayed'
+        }
       }
       return 'completed'
     }
@@ -117,7 +122,10 @@ export function ShipmentTimeline({ steps, plannedEta, currentStage }: ShipmentTi
     if (!step.actualCompletionTime || !step.expectedCompletionTime) return false
     const actual = new Date(step.actualCompletionTime)
     const expected = new Date(step.expectedCompletionTime)
-    return actual > expected
+    const diffMs = actual.getTime() - expected.getTime()
+    const diffHours = diffMs / (1000 * 60 * 60)
+    // Only consider it delayed if it's 24 hours or more
+    return diffHours >= 24
   }
 
   const getDelayDays = (step: ShipmentStep): number => {
@@ -125,7 +133,11 @@ export function ShipmentTimeline({ steps, plannedEta, currentStage }: ShipmentTi
     const actual = new Date(step.actualCompletionTime)
     const expected = new Date(step.expectedCompletionTime)
     const diffMs = actual.getTime() - expected.getTime()
-    return Math.ceil(diffMs / (1000 * 60 * 60 * 24))
+    const diffHours = diffMs / (1000 * 60 * 60)
+    // Only return delay days if it's 24 hours or more
+    if (diffHours < 24) return 0
+    // Use Math.floor to get the actual number of full days (24-47 hours = 1 day, 48-71 hours = 2 days, etc.)
+    return Math.floor(diffHours / 24)
   }
 
   if (steps.length === 0) {
@@ -215,17 +227,27 @@ export function ShipmentTimeline({ steps, plannedEta, currentStage }: ShipmentTi
                       <p className="text-sm text-muted-foreground mb-2">{normalizedStep.stepDescription}</p>
                     )}
                     <div className="flex flex-col gap-1 text-sm">
-                      {/* Show completed time only if step is actually completed (actual time in past) */}
-                      {normalizedStep.actualCompletionTime && status === 'completed' && (
-                        <div className="flex items-center gap-2">
-                          <span className="text-muted-foreground">Completed:</span>
-                          <span className="font-medium">
-                            {format(new Date(normalizedStep.actualCompletionTime), 'MMM dd, yyyy HH:mm')}
-                          </span>
-                        </div>
+                      {/* Show completed time if it exists and is in the past */}
+                      {normalizedStep.actualCompletionTime && (
+                        (() => {
+                          const actualTime = new Date(normalizedStep.actualCompletionTime)
+                          const nowTime = getNow().getTime()
+                          // Only show if actual time is in the past (with 1 minute buffer)
+                          if (actualTime.getTime() <= nowTime + 60000) {
+                            return (
+                              <div className="flex items-center gap-2">
+                                <span className="text-muted-foreground">Completed:</span>
+                                <span className="font-medium">
+                                  {format(actualTime, 'MMM dd, yyyy HH:mm')}
+                                </span>
+                              </div>
+                            )
+                          }
+                          return null
+                        })()
                       )}
-                      {/* Show expected time for upcoming, in-progress, or delayed steps */}
-                      {normalizedStep.expectedCompletionTime && (status === 'upcoming' || status === 'in-progress' || status === 'delayed' || !normalizedStep.actualCompletionTime) && (
+                      {/* Always show expected time if it exists */}
+                      {normalizedStep.expectedCompletionTime && (
                         <div className="flex items-center gap-2">
                           <span className={cn(
                             'text-muted-foreground',
