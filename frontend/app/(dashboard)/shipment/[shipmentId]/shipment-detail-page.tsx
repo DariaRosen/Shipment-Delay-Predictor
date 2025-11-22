@@ -1,6 +1,6 @@
 'use client'
 
-import { useParams, useRouter } from 'next/navigation'
+import { useParams, useRouter, useSearchParams } from 'next/navigation'
 import { useQuery } from '@tanstack/react-query'
 import { apiClient } from '@/lib/api-client'
 import { AlertShipment } from '@/types/alerts'
@@ -17,6 +17,18 @@ interface ShipmentDetailPageProps {
 
 export function ShipmentDetailPage({ shipmentId }: ShipmentDetailPageProps) {
   const router = useRouter()
+  const searchParams = useSearchParams()
+  
+  // Get return URL from query params or use browser history
+  const handleBack = () => {
+    const returnTo = searchParams.get('returnTo')
+    if (returnTo) {
+      router.push(returnTo)
+    } else {
+      // Use browser history to go back to the previous page
+      router.back()
+    }
+  }
 
   const { data, isLoading, error } = useQuery<AlertShipment>({
     queryKey: ['shipment', shipmentId],
@@ -47,9 +59,9 @@ export function ShipmentDetailPage({ shipmentId }: ShipmentDetailPageProps) {
             </CardHeader>
             <CardContent>
               <p className="mb-4">Shipment {shipmentId} was not found.</p>
-              <Button onClick={() => router.push('/alerts')} variant="outline">
+              <Button onClick={handleBack} variant="outline">
                 <ArrowLeft className="mr-2 h-4 w-4" />
-                Back to Alerts
+                Go Back
               </Button>
             </CardContent>
           </Card>
@@ -80,7 +92,7 @@ export function ShipmentDetailPage({ shipmentId }: ShipmentDetailPageProps) {
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-4">
             <Button
-              onClick={() => router.push('/alerts')}
+              onClick={handleBack}
               variant="ghost"
               size="icon"
               className="hover:bg-teal-50"

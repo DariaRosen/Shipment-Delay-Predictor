@@ -58,7 +58,7 @@ export function ShipmentSearchPage() {
                   </div>
                 </div>
                 <p className="text-sm text-muted-foreground">
-                  You can also click on any shipment in the Alerts table to view its details.
+                  You can also click on any shipment in the Alerts or Shipments tables to view its details.
                 </p>
               </form>
             </CardContent>
