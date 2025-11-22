@@ -13,6 +13,7 @@ export type RiskReason =
   | 'WeatherAlert'
   | 'CapacityShortage'
   | 'DocsMissing'
+  | 'Lost'
 
 export interface ShipmentStep {
   stepName: string
@@ -39,6 +40,7 @@ export interface AlertShipment {
   severity: Severity
   riskReasons: RiskReason[]
   owner: string
+  status?: 'completed' | 'in_progress' | 'canceled'
   steps?: ShipmentStep[]
 }
 

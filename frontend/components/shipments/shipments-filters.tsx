@@ -15,13 +15,13 @@ interface ShipmentsFiltersProps {
   filters: {
     year?: number
     month?: number
-    status?: 'all' | 'completed' | 'incomplete'
+    status?: 'all' | 'completed' | 'in_progress' | 'canceled'
     search?: string
   }
   onFiltersChange: (filters: {
     year?: number
     month?: number
-    status?: 'all' | 'completed' | 'incomplete'
+    status?: 'all' | 'completed' | 'in_progress' | 'canceled'
     search?: string
   }) => void
 }
@@ -118,7 +118,7 @@ export const ShipmentsFilters = ({ filters, onFiltersChange }: ShipmentsFiltersP
           onValueChange={(value) =>
             onFiltersChange({
               ...filters,
-              status: value === 'all' ? undefined : (value as 'completed' | 'incomplete'),
+              status: value === 'all' ? undefined : (value as 'completed' | 'in_progress' | 'canceled'),
             })
           }
         >
@@ -128,7 +128,8 @@ export const ShipmentsFilters = ({ filters, onFiltersChange }: ShipmentsFiltersP
           <SelectContent>
             <SelectItem value="all">All Statuses</SelectItem>
             <SelectItem value="completed">Completed</SelectItem>
-            <SelectItem value="incomplete">Incomplete</SelectItem>
+            <SelectItem value="in_progress">In Progress</SelectItem>
+            <SelectItem value="canceled">Canceled</SelectItem>
           </SelectContent>
         </Select>
       </div>

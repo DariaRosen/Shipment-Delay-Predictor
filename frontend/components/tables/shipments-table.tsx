@@ -10,11 +10,28 @@ import {
 } from '@/components/ui/table'
 import { Badge } from '@/components/ui/badge'
 import { AlertShipment } from '@/types/alerts'
-import { CheckCircle2, Clock } from 'lucide-react'
+import { CheckCircle2, Clock, XCircle, ArrowUpDown, ArrowUp, ArrowDown } from 'lucide-react'
+import { cn } from '@/lib/utils'
+
+type SortField = 
+  | 'shipmentId'
+  | 'status'
+  | 'lane'
+  | 'mode'
+  | 'carrier'
+  | 'currentStage'
+  | 'eta'
+  | 'orderDate'
+  | 'owner'
+
+type SortOrder = 'asc' | 'desc'
 
 interface ShipmentsTableProps {
   shipments: AlertShipment[]
   onRowClick?: (shipmentId: string) => void
+  sortBy?: SortField
+  sortOrder?: SortOrder
+  onSort?: (field: SortField) => void
 }
 
 const getModeIcon = (mode: string) => {
@@ -27,6 +44,10 @@ const getModeIcon = (mode: string) => {
 }
 
 const isShipmentCompleted = (shipment: AlertShipment): boolean => {
+  // Use status field if available
+  if (shipment.status === 'completed') return true
+  if (shipment.status === 'canceled') return false
+  
   const completedStages = [
     'package received by customer',
     'delivered',
@@ -37,45 +58,186 @@ const isShipmentCompleted = (shipment: AlertShipment): boolean => {
   
   // Check current stage first (most reliable indicator)
   const currentStageLower = shipment.currentStage.toLowerCase()
-  if (completedStages.some((stage) => currentStageLower.includes(stage))) {
+  const isCompletedByCurrentStage = completedStages.some((stage) =>
+    currentStageLower.includes(stage),
+  )
+  
+  if (isCompletedByCurrentStage) {
     return true
   }
   
-  // Check if any step is the final delivery step and has actual completion time
+  // Check if the LAST step is the final delivery step and has actual completion time
+  // Only the last step should indicate completion
   if (shipment.steps && shipment.steps.length > 0) {
-    return shipment.steps.some((step) => {
-      const stepNameLower = step.stepName.toLowerCase()
-      const isFinalStep = completedStages.some((stage) =>
-        stepNameLower.includes(stage),
-      )
-      // If it's the final step and has actual completion time, it's completed
-      return isFinalStep && !!step.actualCompletionTime
-    })
+    const lastStep = shipment.steps[shipment.steps.length - 1]
+    const stepNameLower = lastStep.stepName.toLowerCase()
+    const isFinalStep = completedStages.some((stage) =>
+      stepNameLower.includes(stage),
+    )
+    
+    // Only consider completed if:
+    // 1. It's the last step (final step in the sequence)
+    // 2. It matches a completion stage
+    // 3. It has actual completion time (meaning it actually happened)
+    if (isFinalStep && lastStep.actualCompletionTime) {
+      // Verify the actual completion time is in the past
+      const actualTime = new Date(lastStep.actualCompletionTime)
+      const now = new Date()
+      return actualTime <= now
+    }
   }
   
   return false
 }
 
-export const ShipmentsTable = ({ shipments, onRowClick }: ShipmentsTableProps) => {
+const isShipmentCanceled = (shipment: AlertShipment): boolean => {
+  // Use status field if available
+  if (shipment.status === 'canceled') return true
+  
+  // Check current stage
+  const currentStageLower = shipment.currentStage.toLowerCase()
+  if (
+    currentStageLower.includes('refund') ||
+    currentStageLower.includes('canceled') ||
+    currentStageLower.includes('lost')
+  ) {
+    return true
+  }
+  
+  return false
+}
+
+const SortableHeader = ({
+  field,
+  label,
+  sortBy,
+  sortOrder,
+  onSort,
+}: {
+  field: SortField
+  label: string
+  sortBy?: SortField
+  sortOrder?: SortOrder
+  onSort?: (field: SortField) => void
+}) => {
+  const isSorted = sortBy === field
+  const canSort = !!onSort
+
+  const handleClick = () => {
+    if (canSort) {
+      onSort(field)
+    }
+  }
+
+  return (
+    <TableHead
+      className={cn(
+        canSort && 'cursor-pointer hover:bg-muted/50 select-none',
+        isSorted && 'bg-muted/30'
+      )}
+      onClick={handleClick}
+    >
+      <div className="flex items-center gap-2">
+        <span>{label}</span>
+        {canSort && (
+          <span className="inline-flex items-center">
+            {isSorted ? (
+              sortOrder === 'asc' ? (
+                <ArrowUp className="h-4 w-4 text-teal-600" />
+              ) : (
+                <ArrowDown className="h-4 w-4 text-teal-600" />
+              )
+            ) : (
+              <ArrowUpDown className="h-4 w-4 text-muted-foreground" />
+            )}
+          </span>
+        )}
+      </div>
+    </TableHead>
+  )
+}
+
+export const ShipmentsTable = ({ 
+  shipments, 
+  onRowClick,
+  sortBy,
+  sortOrder,
+  onSort,
+}: ShipmentsTableProps) => {
   return (
     <div className="rounded-md border-teal-200 bg-white/95 shadow-sm">
       <Table>
         <TableHeader>
           <TableRow>
-            <TableHead>Status</TableHead>
-            <TableHead>Shipment ID</TableHead>
-            <TableHead>Lane</TableHead>
-            <TableHead>Mode</TableHead>
-            <TableHead>Carrier</TableHead>
-            <TableHead>Current Stage</TableHead>
-            <TableHead>ETA</TableHead>
-            <TableHead>Order Date</TableHead>
-            <TableHead>Owner</TableHead>
+            <SortableHeader 
+              field="status" 
+              label="Status" 
+              sortBy={sortBy}
+              sortOrder={sortOrder}
+              onSort={onSort}
+            />
+            <SortableHeader 
+              field="shipmentId" 
+              label="Shipment ID" 
+              sortBy={sortBy}
+              sortOrder={sortOrder}
+              onSort={onSort}
+            />
+            <SortableHeader 
+              field="lane" 
+              label="Lane" 
+              sortBy={sortBy}
+              sortOrder={sortOrder}
+              onSort={onSort}
+            />
+            <SortableHeader 
+              field="mode" 
+              label="Mode" 
+              sortBy={sortBy}
+              sortOrder={sortOrder}
+              onSort={onSort}
+            />
+            <SortableHeader 
+              field="carrier" 
+              label="Carrier" 
+              sortBy={sortBy}
+              sortOrder={sortOrder}
+              onSort={onSort}
+            />
+            <SortableHeader 
+              field="currentStage" 
+              label="Current Stage" 
+              sortBy={sortBy}
+              sortOrder={sortOrder}
+              onSort={onSort}
+            />
+            <SortableHeader 
+              field="eta" 
+              label="ETA" 
+              sortBy={sortBy}
+              sortOrder={sortOrder}
+              onSort={onSort}
+            />
+            <SortableHeader 
+              field="orderDate" 
+              label="Order Date" 
+              sortBy={sortBy}
+              sortOrder={sortOrder}
+              onSort={onSort}
+            />
+            <SortableHeader 
+              field="owner" 
+              label="Owner" 
+              sortBy={sortBy}
+              sortOrder={sortOrder}
+              onSort={onSort}
+            />
           </TableRow>
         </TableHeader>
         <TableBody>
           {shipments.map((shipment) => {
             const completed = isShipmentCompleted(shipment)
+            const canceled = isShipmentCanceled(shipment)
             return (
               <TableRow
                 key={shipment.shipmentId}
@@ -83,7 +245,12 @@ export const ShipmentsTable = ({ shipments, onRowClick }: ShipmentsTableProps) =
                 onClick={() => onRowClick?.(shipment.shipmentId)}
               >
                 <TableCell>
-                  {completed ? (
+                  {canceled ? (
+                    <Badge className="bg-red-100 text-red-800 border-red-200 flex items-center gap-1.5">
+                      <XCircle className="h-3 w-3" />
+                      Canceled
+                    </Badge>
+                  ) : completed ? (
                     <Badge className="bg-green-100 text-green-800 border-green-200 flex items-center gap-1.5">
                       <CheckCircle2 className="h-3 w-3" />
                       Completed

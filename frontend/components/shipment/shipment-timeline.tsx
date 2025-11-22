@@ -136,13 +136,20 @@ export function ShipmentTimeline({ steps, plannedEta, currentStage }: ShipmentTi
     )
   }
 
+  // Ensure steps are sorted by stepOrder (first step = stepOrder 1, last step = highest stepOrder)
+  const sortedSteps = [...steps].sort((a, b) => {
+    const orderA = a.stepOrder || 0
+    const orderB = b.stepOrder || 0
+    return orderA - orderB
+  })
+
   return (
     <div className="relative">
       {/* Timeline line */}
       <div className="absolute left-6 top-0 bottom-0 w-0.5 bg-teal-200" />
 
       <div className="space-y-6">
-        {steps.map((step, index) => {
+        {sortedSteps.map((step, index) => {
           const normalizedStep = normalizeStep(step)
           const status = getStepStatus(normalizedStep, index)
           const isDelayed = isStepDelayed(normalizedStep)
