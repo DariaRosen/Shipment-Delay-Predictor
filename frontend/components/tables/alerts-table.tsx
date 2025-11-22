@@ -22,6 +22,15 @@ const severityColors: Record<Severity, string> = {
   Low: 'bg-green-100 text-green-800 border-green-200',
 }
 
+const getModeIcon = (mode: string) => {
+  const icons: Record<string, string> = {
+    Air: '✈️',
+    Sea: '🚢',
+    Road: '🚚',
+  }
+  return icons[mode] || ''
+}
+
 const getRiskIcon = (reason: string) => {
   const icons: Record<string, string> = {
     StaleStatus: '🕒',
@@ -72,7 +81,10 @@ export const AlertsTable = ({ alerts, onRowClick }: AlertsTableProps) => {
                 {alert.origin} → {alert.destination}
               </TableCell>
               <TableCell>
-                <Badge variant="outline">{alert.mode}</Badge>
+                <Badge variant="outline" className="flex items-center gap-1.5">
+                  <span>{getModeIcon(alert.mode)}</span>
+                  <span>{alert.mode}</span>
+                </Badge>
               </TableCell>
               <TableCell>{alert.carrierName}</TableCell>
               <TableCell>{alert.currentStage}</TableCell>
