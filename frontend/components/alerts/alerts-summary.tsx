@@ -42,30 +42,30 @@ export const AlertsSummary = ({ alerts }: AlertsSummaryProps) => {
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-6">
-      <Card>
+      <Card className="border-teal-200 bg-white/95 shadow-sm">
         <CardHeader>
-          <CardTitle>Total At-Risk Shipments</CardTitle>
+          <CardTitle className="text-teal-900">Total At-Risk Shipments</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="text-4xl font-bold">{alerts.length}</div>
-          <p className="text-sm text-muted-foreground mt-2">
+          <div className="text-4xl font-bold text-teal-700">{alerts.length}</div>
+          <p className="text-sm text-teal-600 mt-2">
             {highRiskCount} high priority alerts
           </p>
         </CardContent>
       </Card>
 
-      <Card>
+      <Card className="border-teal-200 bg-white/95 shadow-sm">
         <CardHeader>
-          <CardTitle>Alerts by Severity</CardTitle>
+          <CardTitle className="text-teal-900">Alerts by Severity</CardTitle>
         </CardHeader>
         <CardContent>
           <SeverityDonut data={severityData} />
         </CardContent>
       </Card>
 
-      <Card>
+      <Card className="border-teal-200 bg-white/95 shadow-sm">
         <CardHeader>
-          <CardTitle>Top Risk Causes</CardTitle>
+          <CardTitle className="text-teal-900">Top Risk Causes</CardTitle>
         </CardHeader>
         <CardContent>
           <RiskCausesBar data={riskCausesData} />

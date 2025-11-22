@@ -27,8 +27,8 @@ export default function AlertsPage() {
 
   if (error) {
     return (
-      <div className="p-6">
-        <Card className="border-destructive">
+      <div className="min-h-screen bg-gradient-to-br from-teal-50 via-[#E6FFFA] to-teal-100 p-6">
+        <Card className="border-destructive bg-white/95">
           <CardHeader>
             <CardTitle className="text-destructive">Error Loading Alerts</CardTitle>
           </CardHeader>
@@ -41,42 +41,44 @@ export default function AlertsPage() {
   }
 
   return (
-    <div className="container mx-auto p-6 space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold">At-Risk Shipments</h1>
-          <p className="text-muted-foreground mt-1">
-            {alerts.length} shipment{alerts.length !== 1 ? 's' : ''} requiring attention
-          </p>
-        </div>
-        {dataUpdatedAt && (
-          <div className="text-sm text-muted-foreground">
-            Last updated: {format(new Date(dataUpdatedAt), 'PPp')}
+    <div className="min-h-screen bg-gradient-to-br from-teal-50 via-[#E6FFFA] to-teal-100">
+      <div className="container mx-auto p-6 space-y-6">
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-3xl font-bold text-teal-900">At-Risk Shipments</h1>
+            <p className="text-teal-700 mt-1">
+              {alerts.length} shipment{alerts.length !== 1 ? 's' : ''} requiring attention
+            </p>
           </div>
-        )}
-      </div>
+          {dataUpdatedAt && (
+            <div className="text-sm text-teal-600">
+              Last updated: {format(new Date(dataUpdatedAt), 'PPp')}
+            </div>
+          )}
+        </div>
 
       <AlertsSummary alerts={alerts} />
 
       <AlertsFilters filters={filters} onFiltersChange={setFilters} carriers={carriers} />
 
-      {isLoading ? (
-        <Card>
-          <CardContent className="py-12">
-            <div className="text-center text-muted-foreground">Loading alerts...</div>
-          </CardContent>
-        </Card>
-      ) : alerts.length === 0 ? (
-        <Card>
-          <CardContent className="py-12">
-            <div className="text-center text-muted-foreground">
-              No alerts found matching your filters.
-            </div>
-          </CardContent>
-        </Card>
-      ) : (
-        <AlertsTable alerts={alerts} onRowClick={handleRowClick} />
-      )}
+        {isLoading ? (
+          <Card className="border-teal-200 bg-white/95">
+            <CardContent className="py-12">
+              <div className="text-center text-teal-600">Loading alerts...</div>
+            </CardContent>
+          </Card>
+        ) : alerts.length === 0 ? (
+          <Card className="border-teal-200 bg-white/95">
+            <CardContent className="py-12">
+              <div className="text-center text-teal-600">
+                No alerts found matching your filters.
+              </div>
+            </CardContent>
+          </Card>
+        ) : (
+          <AlertsTable alerts={alerts} onRowClick={handleRowClick} />
+        )}
+      </div>
     </div>
   )
 }

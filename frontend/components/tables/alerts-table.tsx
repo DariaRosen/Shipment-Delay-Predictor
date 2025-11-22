@@ -40,7 +40,7 @@ const getRiskIcon = (reason: string) => {
 
 export const AlertsTable = ({ alerts, onRowClick }: AlertsTableProps) => {
   return (
-    <div className="rounded-md border">
+    <div className="rounded-md border-teal-200 bg-white/95 shadow-sm">
       <Table>
         <TableHeader>
           <TableRow>
