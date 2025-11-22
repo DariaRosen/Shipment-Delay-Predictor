@@ -1,7 +1,7 @@
 'use client'
 
 import { ShipmentStep } from '@/types/alerts'
-import { CheckCircle2, Clock, AlertCircle, MapPin } from 'lucide-react'
+import { CheckCircle2, Clock, AlertCircle, MapPin, Circle } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { format } from 'date-fns'
 import { cn } from '@/lib/utils'
@@ -13,76 +13,102 @@ interface ShipmentTimelineProps {
 }
 
 export function ShipmentTimeline({ steps, plannedEta, currentStage }: ShipmentTimelineProps) {
-  const now = new Date()
+  // Get current time - recalculate for each comparison to ensure accuracy
+  const getNow = () => new Date()
   const eta = new Date(plannedEta)
 
-  const getStepStatus = (step: ShipmentStep, index: number): 'completed' | 'in-progress' | 'pending' | 'delayed' | 'upcoming' => {
-    const hasActualTime = !!step.actualCompletionTime
-    const actualTime = hasActualTime ? new Date(step.actualCompletionTime) : null
+  // Normalize step: if actualCompletionTime is in the future, treat it as expectedCompletionTime
+  const normalizeStep = (step: ShipmentStep): ShipmentStep => {
+    const nowTime = getNow().getTime()
     
-    // Find the last completed step
-    const completedSteps = steps.filter((s) => {
-      if (!s.actualCompletionTime) return false
-      return new Date(s.actualCompletionTime) <= now
-    })
-    const lastCompletedIndex = completedSteps.length > 0 
-      ? steps.findIndex((s) => s.actualCompletionTime && new Date(s.actualCompletionTime) <= now && 
-        new Date(s.actualCompletionTime).getTime() === Math.max(...completedSteps.map(cs => new Date(cs.actualCompletionTime!).getTime())))
-      : -1
-
-    // If this step has actual completion time
-    if (hasActualTime && actualTime) {
-      // Check if it's in the future (shouldn't happen, but handle it)
-      if (actualTime > now) {
-        // Check if previous step is completed - this is in progress
-        if (index > 0 && steps[index - 1].actualCompletionTime) {
-          const prevTime = new Date(steps[index - 1].actualCompletionTime!)
-          if (prevTime <= now) {
-            return 'in-progress'
+    if (step.actualCompletionTime) {
+      const actualTime = new Date(step.actualCompletionTime)
+      const actualTimeMs = actualTime.getTime()
+      
+      // If actual time is in the future (with 1 minute buffer for timezone/rounding issues), 
+      // it's actually an expected time, not an actual completion
+      if (actualTimeMs > nowTime + 60000) { // 1 minute buffer
+        // Use the actualCompletionTime as expectedCompletionTime, and keep existing expectedCompletionTime if it's later
+        const normalized: ShipmentStep = {
+          ...step,
+          expectedCompletionTime: step.actualCompletionTime,
+          actualCompletionTime: undefined,
+        }
+        
+        // If there's already an expectedCompletionTime that's later, use that instead
+        if (step.expectedCompletionTime) {
+          const existingExpected = new Date(step.expectedCompletionTime).getTime()
+          if (existingExpected > actualTimeMs) {
+            normalized.expectedCompletionTime = step.expectedCompletionTime
           }
         }
+        
+        return normalized
+      }
+    }
+    
+    // If expectedCompletionTime exists but is in the past and there's no actualCompletionTime,
+    // this might be a data issue, but we'll handle it in the status logic
+    return step
+  }
+
+  const getStepStatus = (normalizedStep: ShipmentStep, index: number): 'completed' | 'in-progress' | 'pending' | 'delayed' | 'upcoming' => {
+    const nowTime = getNow().getTime()
+    const hasActualTime = !!normalizedStep.actualCompletionTime
+    const actualTime = hasActualTime ? new Date(normalizedStep.actualCompletionTime!) : null
+    const expectedTime = normalizedStep.expectedCompletionTime ? new Date(normalizedStep.expectedCompletionTime) : null
+
+    // If step has actual completion time (must be in the past after normalization)
+    if (hasActualTime && actualTime) {
+      // Double-check: actual time should be in the past (with 1 minute buffer)
+      const actualTimeMs = actualTime.getTime()
+      if (actualTimeMs > nowTime + 60000) {
+        // This shouldn't happen after normalization, but handle it anyway
         return 'upcoming'
       }
-
-      // Step is completed (actual time is in the past)
+      
+      // Actual time is in the past - step is completed
       // Check if it was delayed
-      if (step.expectedCompletionTime) {
-        const expectedTime = new Date(step.expectedCompletionTime)
-        if (actualTime > expectedTime) {
-          return 'delayed'
-        }
+      if (expectedTime && actualTime > expectedTime) {
+        return 'delayed'
       }
       return 'completed'
     }
 
-    // No actual completion time - check if this should be in progress
-    if (index === lastCompletedIndex + 1) {
-      // This is the next step after the last completed one
+    // No actual completion time - determine status based on expected time and position
+    if (expectedTime) {
+      const expectedTimeMs = expectedTime.getTime()
+      
+      // If expected time is in the future, it's upcoming
+      if (expectedTimeMs > nowTime + 60000) { // 1 minute buffer
+        // Check if this is the current active stage (should be in-progress)
+        const isCurrentStage = normalizedStep.stepName === currentStage || 
+          currentStage.toLowerCase().includes(normalizedStep.stepName.toLowerCase().substring(0, 20))
+        if (isCurrentStage) {
+          return 'in-progress'
+        }
+        return 'upcoming'
+      }
+      
+      // Expected time is in the past but no actual time - likely delayed
+      return 'delayed'
+    }
+
+    // No actual or expected time - check if it's the current stage
+    const isCurrentStage = normalizedStep.stepName === currentStage || 
+      currentStage.toLowerCase().includes(normalizedStep.stepName.toLowerCase().substring(0, 20))
+    if (isCurrentStage) {
       return 'in-progress'
     }
 
-    if (index <= lastCompletedIndex) {
-      // This step should have been completed but doesn't have actual time
-      // This shouldn't happen, but mark as pending
-      return 'pending'
-    }
-
-    // Future step - check if it has expected time
-    if (step.expectedCompletionTime) {
-      const expectedTime = new Date(step.expectedCompletionTime)
-      if (expectedTime > now) {
-        return 'upcoming'
-      }
-    }
-
-    // Future step without expected time
+    // Default to pending for steps without timing information
     return 'pending'
   }
 
   const getDaysUntilExpected = (step: ShipmentStep): number | null => {
     if (!step.expectedCompletionTime) return null
     const expected = new Date(step.expectedCompletionTime)
-    const diffMs = expected.getTime() - now.getTime()
+    const diffMs = expected.getTime() - getNow().getTime()
     if (diffMs < 0) return null // Already past expected time
     return Math.ceil(diffMs / (1000 * 60 * 60 * 24))
   }
@@ -117,10 +143,11 @@ export function ShipmentTimeline({ steps, plannedEta, currentStage }: ShipmentTi
 
       <div className="space-y-6">
         {steps.map((step, index) => {
-          const status = getStepStatus(step, index)
-          const isDelayed = isStepDelayed(step)
-          const delayDays = getDelayDays(step)
-          const daysUntilExpected = getDaysUntilExpected(step)
+          const normalizedStep = normalizeStep(step)
+          const status = getStepStatus(normalizedStep, index)
+          const isDelayed = isStepDelayed(normalizedStep)
+          const delayDays = getDelayDays(normalizedStep)
+          const daysUntilExpected = getDaysUntilExpected(normalizedStep)
           const isUpcoming = status === 'upcoming'
 
           return (
@@ -139,7 +166,8 @@ export function ShipmentTimeline({ steps, plannedEta, currentStage }: ShipmentTi
                 {status === 'completed' && <CheckCircle2 className="h-6 w-6 text-green-600" />}
                 {status === 'in-progress' && <Clock className="h-6 w-6 text-teal-600" />}
                 {status === 'delayed' && <AlertCircle className="h-6 w-6 text-red-600" />}
-                {(status === 'upcoming' || status === 'pending') && <div className="h-3 w-3 rounded-full bg-gray-400" />}
+                {status === 'upcoming' && <Circle className="h-6 w-6 text-blue-500 fill-blue-100" />}
+                {status === 'pending' && <Circle className="h-6 w-6 text-gray-400" />}
               </div>
 
               {/* Step content */}
@@ -154,7 +182,7 @@ export function ShipmentTimeline({ steps, plannedEta, currentStage }: ShipmentTi
                         status === 'upcoming' && 'text-blue-700',
                         status === 'delayed' && 'text-red-700',
                         status === 'pending' && 'text-gray-600'
-                      )}>{step.stepName}</h3>
+                      )}>{normalizedStep.stepName}</h3>
                       {isDelayed && (
                         <Badge variant="destructive" className="text-xs">
                           {delayDays} day{delayDays !== 1 ? 's' : ''} delay
@@ -176,44 +204,46 @@ export function ShipmentTimeline({ steps, plannedEta, currentStage }: ShipmentTi
                         </Badge>
                       )}
                     </div>
-                    {step.stepDescription && (
-                      <p className="text-sm text-muted-foreground mb-2">{step.stepDescription}</p>
+                    {normalizedStep.stepDescription && (
+                      <p className="text-sm text-muted-foreground mb-2">{normalizedStep.stepDescription}</p>
                     )}
                     <div className="flex flex-col gap-1 text-sm">
-                      {step.actualCompletionTime && (
+                      {/* Show completed time only if step is actually completed (actual time in past) */}
+                      {normalizedStep.actualCompletionTime && status === 'completed' && (
                         <div className="flex items-center gap-2">
                           <span className="text-muted-foreground">Completed:</span>
                           <span className="font-medium">
-                            {format(new Date(step.actualCompletionTime), 'MMM dd, yyyy HH:mm')}
+                            {format(new Date(normalizedStep.actualCompletionTime), 'MMM dd, yyyy HH:mm')}
                           </span>
                         </div>
                       )}
-                      {step.expectedCompletionTime && (
+                      {/* Show expected time for upcoming, in-progress, or delayed steps */}
+                      {normalizedStep.expectedCompletionTime && (status === 'upcoming' || status === 'in-progress' || status === 'delayed' || !normalizedStep.actualCompletionTime) && (
                         <div className="flex items-center gap-2">
                           <span className={cn(
                             'text-muted-foreground',
-                            isUpcoming && 'font-medium text-blue-600'
+                            (isUpcoming || status === 'in-progress') && 'font-medium text-blue-600'
                           )}>
-                            {isUpcoming ? 'Expected:' : 'Expected:'}
+                            Expected:
                           </span>
                           <span className={cn(
                             'font-medium',
                             isDelayed && 'text-red-600',
-                            isUpcoming && 'text-blue-700'
+                            (isUpcoming || status === 'in-progress') && 'text-blue-700'
                           )}>
-                            {format(new Date(step.expectedCompletionTime), 'MMM dd, yyyy HH:mm')}
+                            {format(new Date(normalizedStep.expectedCompletionTime), 'MMM dd, yyyy HH:mm')}
                           </span>
                         </div>
                       )}
-                      {!step.actualCompletionTime && !step.expectedCompletionTime && (
+                      {!normalizedStep.actualCompletionTime && !normalizedStep.expectedCompletionTime && (
                         <div className="text-xs text-muted-foreground italic">
                           Schedule to be determined
                         </div>
                       )}
-                      {step.location && (
+                      {normalizedStep.location && (
                         <div className="flex items-center gap-2 mt-1">
                           <MapPin className="h-3 w-3 text-teal-600" />
-                          <span className="text-muted-foreground text-xs">{step.location}</span>
+                          <span className="text-muted-foreground text-xs">{normalizedStep.location}</span>
                         </div>
                       )}
                     </div>

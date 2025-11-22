@@ -29,6 +29,7 @@ const AIR_STEPS: StepTemplate[] = [
   { name: 'Package arrived at regional carrier facility', description: '', expectedDurationHours: 6 },
   { name: 'Package arrived at pick-up point', description: '', expectedDurationHours: 4 },
   { name: 'Awaiting pickup', description: 'Your package is now available for pick up at the designated location. To ensure a smooth process, kindly take a look at the pickup instructions shared by the carrier.', expectedDurationHours: 0 },
+  { name: 'Package received by customer', description: 'Your package has been successfully delivered and received by the customer.', expectedDurationHours: 0 },
 ];
 
 const SEA_STEPS: StepTemplate[] = [
@@ -53,6 +54,7 @@ const SEA_STEPS: StepTemplate[] = [
   { name: 'Package arrived at regional carrier facility', description: '', expectedDurationHours: 12 },
   { name: 'Package arrived at pick-up point', description: '', expectedDurationHours: 8 },
   { name: 'Awaiting pickup', description: 'Your package is now available for pick up at the designated location. To ensure a smooth process, kindly take a look at the pickup instructions shared by the carrier.', expectedDurationHours: 0 },
+  { name: 'Package received by customer', description: 'Your package has been successfully delivered and received by the customer.', expectedDurationHours: 0 },
 ];
 
 const ROAD_STEPS: StepTemplate[] = [
@@ -70,6 +72,7 @@ const ROAD_STEPS: StepTemplate[] = [
   { name: 'Package arrived at regional carrier facility', description: '', expectedDurationHours: 6 },
   { name: 'Package arrived at pick-up point', description: '', expectedDurationHours: 4 },
   { name: 'Awaiting pickup', description: 'Your package is now available for pick up at the designated location. To ensure a smooth process, kindly take a look at the pickup instructions shared by the carrier.', expectedDurationHours: 0 },
+  { name: 'Package received by customer', description: 'Your package has been successfully delivered and received by the customer.', expectedDurationHours: 0 },
 ];
 
 function getStepsForMode(mode: Mode): StepTemplate[] {
