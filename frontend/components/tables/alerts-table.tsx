@@ -48,6 +48,7 @@ export const AlertsTable = ({ alerts, onRowClick }: AlertsTableProps) => {
             <TableHead>Shipment ID</TableHead>
             <TableHead>Lane</TableHead>
             <TableHead>Mode</TableHead>
+            <TableHead>Carrier</TableHead>
             <TableHead>Current Stage</TableHead>
             <TableHead>ETA</TableHead>
             <TableHead>Risk Factors</TableHead>
@@ -73,6 +74,7 @@ export const AlertsTable = ({ alerts, onRowClick }: AlertsTableProps) => {
               <TableCell>
                 <Badge variant="outline">{alert.mode}</Badge>
               </TableCell>
+              <TableCell>{alert.carrierName}</TableCell>
               <TableCell>{alert.currentStage}</TableCell>
               <TableCell>
                 <div className="flex flex-col">
