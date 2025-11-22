@@ -15,13 +15,13 @@ interface ShipmentsFiltersProps {
   filters: {
     year?: number
     month?: number
-    status?: 'all' | 'completed' | 'in_progress' | 'canceled'
+    status?: 'all' | 'completed' | 'in_progress' | 'canceled' | 'future'
     search?: string
   }
   onFiltersChange: (filters: {
     year?: number
     month?: number
-    status?: 'all' | 'completed' | 'in_progress' | 'canceled'
+    status?: 'all' | 'completed' | 'in_progress' | 'canceled' | 'future'
     search?: string
   }) => void
 }
@@ -118,7 +118,7 @@ export const ShipmentsFilters = ({ filters, onFiltersChange }: ShipmentsFiltersP
           onValueChange={(value) =>
             onFiltersChange({
               ...filters,
-              status: value === 'all' ? undefined : (value as 'completed' | 'in_progress' | 'canceled'),
+              status: value === 'all' ? undefined : (value as 'completed' | 'in_progress' | 'canceled' | 'future'),
             })
           }
         >
@@ -130,6 +130,7 @@ export const ShipmentsFilters = ({ filters, onFiltersChange }: ShipmentsFiltersP
             <SelectItem value="completed">Completed</SelectItem>
             <SelectItem value="in_progress">In Progress</SelectItem>
             <SelectItem value="canceled">Canceled</SelectItem>
+            <SelectItem value="future">Future</SelectItem>
           </SelectContent>
         </Select>
       </div>

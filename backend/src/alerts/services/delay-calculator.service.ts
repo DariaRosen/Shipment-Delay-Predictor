@@ -42,7 +42,7 @@ export interface CalculatedAlert {
   acknowledged: boolean;
   acknowledgedBy?: string;
   acknowledgedAt?: string;
-  status?: 'completed' | 'in_progress' | 'canceled';
+  status?: 'completed' | 'in_progress' | 'canceled' | 'future';
   steps?: Array<{
     stepName: string;
     stepDescription?: string;
@@ -108,6 +108,31 @@ export class DelayCalculatorService {
     const now = new Date();
     const expectedDelivery = new Date(shipment.expected_delivery);
     const orderDate = new Date(shipment.order_date);
+    
+    // Check if order date is in the future - mark as future shipment
+    if (orderDate > now) {
+      // Return a minimal alert for future shipments
+      return {
+        shipmentId: shipment.shipment_id,
+        origin: shipment.origin_city,
+        destination: shipment.dest_city,
+        mode: shipment.mode as 'Air' | 'Sea' | 'Road',
+        carrierName: shipment.carrier,
+        serviceLevel: shipment.service_level,
+        currentStage: shipment.current_status || 'Order scheduled',
+        plannedEta: shipment.expected_delivery,
+        daysToEta: Math.ceil((expectedDelivery.getTime() - now.getTime()) / (1000 * 60 * 60 * 24)),
+        lastMilestoneUpdate: shipment.order_date,
+        orderDate: shipment.order_date,
+        riskScore: 0,
+        severity: 'Low',
+        riskReasons: [],
+        owner: shipment.owner,
+        acknowledged: false,
+        status: 'future',
+        steps: [],
+      };
+    }
     
     // Get latest event
     const latestEvent = shipment.events.length > 0
@@ -429,6 +454,13 @@ export class DelayCalculatorService {
    * 2. 14+ days past the expected delivery date (ETA) and not completed
    */
   isShipmentCanceled(shipment: ShipmentData): boolean {
+    // Don't cancel future shipments (order date in the future)
+    const orderDate = new Date(shipment.order_date);
+    const now = new Date();
+    if (orderDate > now) {
+      return false;
+    }
+    
     // Check if already marked as canceled
     if (shipment.current_status && shipment.current_status.toLowerCase().includes('canceled')) {
       return true;
@@ -463,7 +495,6 @@ export class DelayCalculatorService {
     );
     
     // Condition 2: Check if 14+ days past expected delivery date (ETA)
-    const now = new Date();
     const expectedDelivery = new Date(shipment.expected_delivery);
     const daysPastEta = (now.getTime() - expectedDelivery.getTime()) / (1000 * 60 * 60 * 24);
     

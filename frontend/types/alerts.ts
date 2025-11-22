@@ -40,7 +40,7 @@ export interface AlertShipment {
   severity: Severity
   riskReasons: RiskReason[]
   owner: string
-  status?: 'completed' | 'in_progress' | 'canceled'
+  status?: 'completed' | 'in_progress' | 'canceled' | 'future'
   steps?: ShipmentStep[]
 }
 

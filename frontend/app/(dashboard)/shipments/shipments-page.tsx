@@ -28,7 +28,7 @@ export default function ShipmentsPage() {
   const [filters, setFilters] = useState<{
     year?: number
     month?: number
-    status?: 'all' | 'completed' | 'in_progress' | 'canceled'
+    status?: 'all' | 'completed' | 'in_progress' | 'canceled' | 'future'
     search?: string
   }>({})
   const [sortBy, setSortBy] = useState<SortField>('orderDate')
@@ -55,14 +55,15 @@ export default function ShipmentsPage() {
           break
         case 'status':
           const getStatusPriority = (shipment: AlertShipment) => {
-            if (shipment.status === 'canceled') return 0
-            if (shipment.status === 'in_progress') return 1
-            if (shipment.status === 'completed') return 2
+            if (shipment.status === 'future') return 0
+            if (shipment.status === 'canceled') return 1
+            if (shipment.status === 'in_progress') return 2
+            if (shipment.status === 'completed') return 3
             // Fallback logic
             const currentStageLower = shipment.currentStage.toLowerCase()
-            if (currentStageLower.includes('refund') || currentStageLower.includes('canceled')) return 0
-            if (currentStageLower.includes('received') || currentStageLower.includes('delivered')) return 2
-            return 1
+            if (currentStageLower.includes('refund') || currentStageLower.includes('canceled')) return 1
+            if (currentStageLower.includes('received') || currentStageLower.includes('delivered')) return 3
+            return 2
           }
           aValue = getStatusPriority(a)
           bValue = getStatusPriority(b)

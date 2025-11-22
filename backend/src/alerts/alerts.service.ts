@@ -197,6 +197,13 @@ export class AlertsService {
         })),
       };
 
+      const calculatedAlert = this.delayCalculator.calculateAlert(shipmentData);
+      
+      // Skip future shipments - they should not appear in alerts
+      if (calculatedAlert.status === 'future') {
+        continue;
+      }
+      
       // Skip completed shipments - they should not appear in alerts
       if (this.delayCalculator.isShipmentCompleted(shipmentData)) {
         continue;
@@ -206,8 +213,6 @@ export class AlertsService {
       if (this.delayCalculator.isShipmentCanceled(shipmentData)) {
         continue;
       }
-
-      const calculatedAlert = this.delayCalculator.calculateAlert(shipmentData);
 
       // Only include shipments with risk factors (riskReasons or riskScore > 0)
       // Completed and canceled shipments are already filtered out above
@@ -381,9 +386,10 @@ export class AlertsService {
 
       // Apply status filter (only if status is specified and not 'all')
       if (filters.status && filters.status !== ShipmentStatus.ALL) {
-        const alertStatus = calculatedAlert.status || 
-          (this.delayCalculator.isShipmentCompleted(shipmentData) ? 'completed' : 'in_progress');
+        // calculatedAlert.status should always be set by calculateAlert
+        const alertStatus = calculatedAlert.status;
         
+        // Strictly match the filter status - if status doesn't match, skip this shipment
         if (filters.status === ShipmentStatus.COMPLETED && alertStatus !== 'completed') {
           continue; // Skip non-completed shipments
         }
@@ -392,6 +398,9 @@ export class AlertsService {
         }
         if (filters.status === ShipmentStatus.CANCELED && alertStatus !== 'canceled') {
           continue; // Skip non-canceled shipments
+        }
+        if (filters.status === ShipmentStatus.FUTURE && alertStatus !== 'future') {
+          continue; // Skip non-future shipments
         }
       }
 

@@ -6,6 +6,7 @@ export enum ShipmentStatus {
   COMPLETED = 'completed',
   IN_PROGRESS = 'in_progress',
   CANCELED = 'canceled',
+  FUTURE = 'future',
 }
 
 export class GetShipmentsDto {
@@ -37,13 +38,16 @@ export class GetShipmentsDto {
       if (cleanValue === 'canceled' || cleanValue === 'cancelled') {
         return ShipmentStatus.CANCELED;
       }
+      if (cleanValue === 'future') {
+        return ShipmentStatus.FUTURE;
+      }
       // Return undefined for invalid values
       return undefined;
     }
     return value;
   })
-  @IsIn([ShipmentStatus.ALL, ShipmentStatus.COMPLETED, ShipmentStatus.IN_PROGRESS, ShipmentStatus.CANCELED], {
-    message: 'status must be all, completed, in_progress, or canceled',
+  @IsIn([ShipmentStatus.ALL, ShipmentStatus.COMPLETED, ShipmentStatus.IN_PROGRESS, ShipmentStatus.CANCELED, ShipmentStatus.FUTURE], {
+    message: 'status must be all, completed, in_progress, canceled, or future',
   })
   status?: ShipmentStatus;
 

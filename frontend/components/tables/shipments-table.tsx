@@ -10,7 +10,7 @@ import {
 } from '@/components/ui/table'
 import { Badge } from '@/components/ui/badge'
 import { AlertShipment } from '@/types/alerts'
-import { CheckCircle2, Clock, XCircle, ArrowUpDown, ArrowUp, ArrowDown } from 'lucide-react'
+import { CheckCircle2, Clock, XCircle, Calendar, ArrowUpDown, ArrowUp, ArrowDown } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 type SortField = 
@@ -235,9 +235,14 @@ export const ShipmentsTable = ({
           </TableRow>
         </TableHeader>
         <TableBody>
-          {shipments.map((shipment) => {
-            const completed = isShipmentCompleted(shipment)
-            const canceled = isShipmentCanceled(shipment)
+            {shipments.map((shipment) => {
+            // Prioritize backend status field over local determination
+            const status = shipment.status
+            const isFuture = status === 'future'
+            const isCanceled = status === 'canceled'
+            const isCompleted = status === 'completed'
+            const isInProgress = status === 'in_progress'
+            
             return (
               <TableRow
                 key={shipment.shipmentId}
@@ -245,12 +250,17 @@ export const ShipmentsTable = ({
                 onClick={() => onRowClick?.(shipment.shipmentId)}
               >
                 <TableCell>
-                  {canceled ? (
+                  {isFuture ? (
+                    <Badge className="bg-purple-100 text-purple-800 border-purple-200 flex items-center gap-1.5">
+                      <Calendar className="h-3 w-3" />
+                      Future
+                    </Badge>
+                  ) : isCanceled ? (
                     <Badge className="bg-red-100 text-red-800 border-red-200 flex items-center gap-1.5">
                       <XCircle className="h-3 w-3" />
                       Canceled
                     </Badge>
-                  ) : completed ? (
+                  ) : isCompleted ? (
                     <Badge className="bg-green-100 text-green-800 border-green-200 flex items-center gap-1.5">
                       <CheckCircle2 className="h-3 w-3" />
                       Completed

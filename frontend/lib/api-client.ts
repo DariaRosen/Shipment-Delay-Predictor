@@ -47,7 +47,7 @@ export const apiClient = {
   async getShipments(filters?: {
     year?: number
     month?: number
-    status?: 'all' | 'completed' | 'in_progress' | 'canceled'
+    status?: 'all' | 'completed' | 'in_progress' | 'canceled' | 'future'
     search?: string
   }): Promise<AlertsResponse> {
     const params = new URLSearchParams()

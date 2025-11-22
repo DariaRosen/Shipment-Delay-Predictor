@@ -43,7 +43,7 @@ export interface AlertShipment {
   acknowledged: boolean;
   acknowledgedBy?: string;
   acknowledgedAt?: string;
-  status?: 'completed' | 'in_progress' | 'canceled';
+  status?: 'completed' | 'in_progress' | 'canceled' | 'future';
   steps?: ShipmentStep[];
 }
 
