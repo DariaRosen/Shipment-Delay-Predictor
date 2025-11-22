@@ -1,6 +1,8 @@
 import { createClient } from '@supabase/supabase-js';
 import * as dotenv from 'dotenv';
 import * as path from 'path';
+import { generateShipmentSteps } from '../src/alerts/data/shipment-steps-generator';
+import { Mode } from '../src/alerts/types/alert-shipment.interface';
 
 // Load environment variables
 dotenv.config({ path: path.join(__dirname, '../.env') });
@@ -18,77 +20,6 @@ if (!supabaseUrl || !supabaseKey) {
 
 const supabase = createClient(supabaseUrl, supabaseKey);
 
-/**
- * Calculate correct event timestamps based on order date and ETA
- * Uses a more realistic distribution based on typical logistics timelines
- */
-function calculateEventTimestamps(
-  orderDate: Date,
-  expectedDelivery: Date,
-  eventStages: string[],
-  mode: string,
-): Date[] {
-  const timestamps: Date[] = [];
-  const totalDuration = expectedDelivery.getTime() - orderDate.getTime();
-  const numEvents = eventStages.length;
-
-  if (numEvents === 0) return timestamps;
-  if (numEvents === 1) {
-    timestamps.push(new Date(orderDate.getTime() + totalDuration * 0.5));
-    return timestamps;
-  }
-
-  // Create a more realistic distribution:
-  // - First 30% of events happen in first 20% of time (initial processing)
-  // - Middle 40% of events happen in middle 60% of time (transit)
-  // - Last 30% of events happen in last 20% of time (delivery)
-  
-  const firstPhaseEvents = Math.ceil(numEvents * 0.3);
-  const middlePhaseEvents = Math.ceil(numEvents * 0.4);
-  const lastPhaseEvents = numEvents - firstPhaseEvents - middlePhaseEvents;
-
-  let currentTime = orderDate.getTime();
-  let eventIndex = 0;
-
-  // First phase: Initial processing (20% of total time)
-  const firstPhaseDuration = totalDuration * 0.2;
-  for (let i = 0; i < firstPhaseEvents; i++) {
-    const progress = i / Math.max(1, firstPhaseEvents - 1);
-    const timestamp = new Date(currentTime + firstPhaseDuration * progress);
-    timestamps.push(timestamp);
-    eventIndex++;
-  }
-  currentTime += firstPhaseDuration;
-
-  // Middle phase: Transit (60% of total time)
-  const middlePhaseDuration = totalDuration * 0.6;
-  for (let i = 0; i < middlePhaseEvents; i++) {
-    const progress = i / Math.max(1, middlePhaseEvents - 1);
-    const timestamp = new Date(currentTime + middlePhaseDuration * progress);
-    timestamps.push(timestamp);
-    eventIndex++;
-  }
-  currentTime += middlePhaseDuration;
-
-  // Last phase: Delivery (20% of total time)
-  const lastPhaseDuration = totalDuration * 0.2;
-  for (let i = 0; i < lastPhaseEvents; i++) {
-    const progress = i / Math.max(1, lastPhaseEvents - 1);
-    const timestamp = new Date(currentTime + lastPhaseDuration * progress);
-    timestamps.push(timestamp);
-    eventIndex++;
-  }
-
-  // Ensure the last event is at or before expected delivery
-  if (timestamps.length > 0) {
-    const lastTimestamp = timestamps[timestamps.length - 1];
-    if (lastTimestamp.getTime() > expectedDelivery.getTime()) {
-      timestamps[timestamps.length - 1] = new Date(expectedDelivery.getTime());
-    }
-  }
-
-  return timestamps;
-}
 
 /**
  * Fix event timestamps for all shipments
@@ -99,7 +30,7 @@ async function fixEventTimestamps() {
   // Fetch all shipments
   const { data: shipments, error: shipmentsError } = await supabase
     .from('shipments')
-    .select('shipment_id, order_date, expected_delivery, mode')
+    .select('shipment_id, order_date, expected_delivery, mode, current_status')
     .order('shipment_id');
 
   if (shipmentsError) {
@@ -120,7 +51,8 @@ async function fixEventTimestamps() {
     const shipmentId = shipment.shipment_id;
     const orderDate = new Date(shipment.order_date);
     const expectedDelivery = new Date(shipment.expected_delivery);
-    const mode = shipment.mode || 'Air';
+    const mode = (shipment.mode || 'Air') as Mode;
+    const currentStage = shipment.current_status || 'In Transit';
 
     // Fetch all events for this shipment
     const { data: events, error: eventsError } = await supabase
@@ -139,24 +71,59 @@ async function fixEventTimestamps() {
       continue;
     }
 
-    // Calculate correct timestamps
-    const eventStages = events.map((e) => e.event_stage);
-    const correctTimestamps = calculateEventTimestamps(
-      orderDate,
-      expectedDelivery,
-      eventStages,
-      mode,
-    );
-
-    // Update each event with correct timestamp
-    const updates = events.map((event, index) => ({
-      event_id: event.event_id,
-      shipment_id: shipmentId,
-      event_time: correctTimestamps[index].toISOString(),
-      event_stage: event.event_stage,
-      description: event.description,
-      location: event.location,
-    }));
+    // Generate steps using the step generator to get proper timestamps
+    const steps = generateShipmentSteps(mode, orderDate, expectedDelivery, currentStage);
+    
+    // Create a map of event stage to timestamp
+    // Match events to steps by name similarity
+    const updates = events.map((event) => {
+      // Find matching step by comparing event stage with step name
+      const matchingStep = steps.find((step) => {
+        const eventStageLower = event.event_stage.toLowerCase();
+        const stepNameLower = step.stepName.toLowerCase();
+        // Check if they match (either contains or is contained)
+        return (
+          stepNameLower.includes(eventStageLower.substring(0, 20)) ||
+          eventStageLower.includes(stepNameLower.substring(0, 20)) ||
+          stepNameLower === eventStageLower
+        );
+      });
+      
+      if (matchingStep) {
+        // Use actualCompletionTime if available, otherwise expectedCompletionTime
+        const timestamp = matchingStep.actualCompletionTime
+          ? new Date(matchingStep.actualCompletionTime)
+          : matchingStep.expectedCompletionTime
+            ? new Date(matchingStep.expectedCompletionTime)
+            : orderDate;
+        
+        return {
+          event_id: event.event_id,
+          shipment_id: shipmentId,
+          event_time: timestamp.toISOString(),
+          event_stage: event.event_stage,
+          description: event.description,
+          location: event.location,
+        };
+      } else {
+        // If no match found, distribute chronologically based on event order
+        const eventIndex = events.findIndex((e) => e.event_id === event.event_id);
+        const totalDuration = expectedDelivery.getTime() - orderDate.getTime();
+        const progress = (eventIndex + 1) / (events.length + 1);
+        const timestamp = new Date(orderDate.getTime() + totalDuration * progress);
+        
+        console.warn(`⚠️  No step match for event stage: "${event.event_stage}" in ${shipmentId}, using distributed timestamp`);
+        
+        return {
+          event_id: event.event_id,
+          shipment_id: shipmentId,
+          event_time: timestamp.toISOString(),
+          event_stage: event.event_stage,
+          description: event.description,
+          location: event.location,
+        };
+      }
+    });
 
     // Delete old events and insert corrected ones
     // We need to delete first because of the UNIQUE constraint

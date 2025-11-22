@@ -372,13 +372,15 @@ export class AlertsService {
         })),
       };
 
-      // Apply status filter
-      const isCompleted = this.delayCalculator.isShipmentCompleted(shipmentData);
-      if (filters.status === ShipmentStatus.COMPLETED && !isCompleted) {
-        continue;
-      }
-      if (filters.status === ShipmentStatus.INCOMPLETE && isCompleted) {
-        continue;
+      // Apply status filter (only if status is specified and not 'all')
+      if (filters.status && filters.status !== ShipmentStatus.ALL) {
+        const isCompleted = this.delayCalculator.isShipmentCompleted(shipmentData);
+        if (filters.status === ShipmentStatus.COMPLETED && !isCompleted) {
+          continue; // Skip incomplete shipments when filtering for completed
+        }
+        if (filters.status === ShipmentStatus.INCOMPLETE && isCompleted) {
+          continue; // Skip completed shipments when filtering for incomplete
+        }
       }
 
       const calculatedAlert = this.delayCalculator.calculateAlert(shipmentData);

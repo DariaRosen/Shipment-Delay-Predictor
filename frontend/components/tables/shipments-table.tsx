@@ -27,13 +27,33 @@ const getModeIcon = (mode: string) => {
 }
 
 const isShipmentCompleted = (shipment: AlertShipment): boolean => {
-  if (!shipment.steps || shipment.steps.length === 0) return false
-  const lastStep = shipment.steps[shipment.steps.length - 1]
-  return (
-    lastStep.stepName.toLowerCase().includes('package received by customer') ||
-    lastStep.stepName.toLowerCase().includes('delivered') ||
-    lastStep.stepName.toLowerCase().includes('received by customer')
-  )
+  const completedStages = [
+    'package received by customer',
+    'delivered',
+    'received by customer',
+    'package received',
+    'delivery completed',
+  ]
+  
+  // Check current stage first (most reliable indicator)
+  const currentStageLower = shipment.currentStage.toLowerCase()
+  if (completedStages.some((stage) => currentStageLower.includes(stage))) {
+    return true
+  }
+  
+  // Check if any step is the final delivery step and has actual completion time
+  if (shipment.steps && shipment.steps.length > 0) {
+    return shipment.steps.some((step) => {
+      const stepNameLower = step.stepName.toLowerCase()
+      const isFinalStep = completedStages.some((stage) =>
+        stepNameLower.includes(stage),
+      )
+      // If it's the final step and has actual completion time, it's completed
+      return isFinalStep && !!step.actualCompletionTime
+    })
+  }
+  
+  return false
 }
 
 export const ShipmentsTable = ({ shipments, onRowClick }: ShipmentsTableProps) => {

@@ -61,13 +61,30 @@ export class DelayCalculatorService {
       'package received by customer',
       'delivered',
       'received by customer',
+      'package received',
+      'delivery completed',
     ];
     
-    return shipment.events.some((event) =>
-      completedStages.some((stage) =>
-        event.event_stage.toLowerCase().includes(stage),
-      ),
-    );
+    // Check current_status first (most reliable indicator)
+    if (shipment.current_status) {
+      const currentStatusLower = shipment.current_status.toLowerCase();
+      const isCompletedByStatus = completedStages.some((stage) =>
+        currentStatusLower.includes(stage),
+      );
+      if (isCompletedByStatus) {
+        return true;
+      }
+    }
+    
+    // Check if any event matches completed stages
+    const hasCompletedEvent = shipment.events.some((event) => {
+      const eventStageLower = event.event_stage.toLowerCase();
+      return completedStages.some((stage) =>
+        eventStageLower.includes(stage),
+      );
+    });
+    
+    return hasCompletedEvent;
   }
 
   /**
