@@ -53,6 +53,23 @@ export interface CalculatedAlert {
 @Injectable()
 export class DelayCalculatorService {
   /**
+   * Check if shipment is completed (has reached final delivery step)
+   */
+  isShipmentCompleted(shipment: ShipmentData): boolean {
+    const completedStages = [
+      'package received by customer',
+      'delivered',
+      'received by customer',
+    ];
+    
+    return shipment.events.some((event) =>
+      completedStages.some((stage) =>
+        event.event_stage.toLowerCase().includes(stage),
+      ),
+    );
+  }
+
+  /**
    * Calculate delays and risk factors from raw shipment data and events
    */
   calculateAlert(shipment: ShipmentData): CalculatedAlert {

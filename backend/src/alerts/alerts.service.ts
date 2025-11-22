@@ -196,7 +196,18 @@ export class AlertsService {
         })),
       };
 
+      // Skip completed shipments - they should not appear in alerts
+      if (this.delayCalculator.isShipmentCompleted(shipmentData)) {
+        continue;
+      }
+
       const calculatedAlert = this.delayCalculator.calculateAlert(shipmentData);
+
+      // Only include shipments with risk factors (riskReasons or riskScore > 0)
+      // Completed shipments are already filtered out above
+      if (calculatedAlert.riskReasons.length === 0 && calculatedAlert.riskScore === 0) {
+        continue;
+      }
 
       // Apply severity filter after calculation
       if (filters.severity && calculatedAlert.severity !== filters.severity) {
