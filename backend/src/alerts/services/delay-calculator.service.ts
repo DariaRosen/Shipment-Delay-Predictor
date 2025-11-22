@@ -67,18 +67,7 @@ export class DelayCalculatorService {
       'delivery completed',
     ];
     
-    // Check current_status first (most reliable indicator)
-    if (shipment.current_status) {
-      const currentStatusLower = shipment.current_status.toLowerCase();
-      const isCompletedByStatus = completedStages.some((stage) =>
-        currentStatusLower.includes(stage),
-      );
-      if (isCompletedByStatus) {
-        return true;
-      }
-    }
-    
-    // Check if the LAST event matches completed stages
+    // Check if the LAST event matches completed stages (most reliable - actual event data)
     // Only the last event should indicate completion
     if (shipment.events.length > 0) {
       const sortedEvents = [...shipment.events].sort(
@@ -94,7 +83,20 @@ export class DelayCalculatorService {
         // Verify the event time is in the past (actually happened)
         const eventTime = new Date(lastEvent.event_time);
         const now = new Date();
-        return eventTime <= now;
+        if (eventTime <= now) {
+          return true; // Last event is a completion event and happened in the past
+        }
+      }
+    }
+    
+    // Fallback: Check current_status (may be outdated)
+    if (shipment.current_status) {
+      const currentStatusLower = shipment.current_status.toLowerCase();
+      const isCompletedByStatus = completedStages.some((stage) =>
+        currentStatusLower.includes(stage),
+      );
+      if (isCompletedByStatus) {
+        return true;
       }
     }
     
@@ -380,6 +382,36 @@ export class DelayCalculatorService {
       finalSteps = [...finalSteps, refundStep];
     }
 
+    // Check if shipment is completed - check both events and generated steps
+    const isCompletedByEvents = this.isShipmentCompleted(shipment);
+    
+    // Also check if the last step indicates completion (in case event doesn't exist)
+    let isCompletedBySteps = false;
+    if (finalSteps.length > 0) {
+      const lastStep = finalSteps[finalSteps.length - 1];
+      const completedStages = [
+        'package received by customer',
+        'delivered',
+        'received by customer',
+        'package received',
+        'delivery completed',
+      ];
+      const lastStepNameLower = lastStep.stepName.toLowerCase();
+      const isLastStepCompleted = completedStages.some((stage) =>
+        lastStepNameLower.includes(stage),
+      );
+      
+      if (isLastStepCompleted && lastStep.actualCompletionTime) {
+        const actualTime = new Date(lastStep.actualCompletionTime);
+        const now = new Date();
+        if (actualTime <= now) {
+          isCompletedBySteps = true;
+        }
+      }
+    }
+    
+    const isCompleted = isCompletedByEvents || isCompletedBySteps;
+
     return {
       shipmentId: shipment.shipment_id,
       origin: shipment.origin_city,
@@ -400,7 +432,7 @@ export class DelayCalculatorService {
       steps: finalSteps,
       status: isCanceled 
         ? 'canceled' 
-        : (this.isShipmentCompleted(shipment) ? 'completed' : 'in_progress'),
+        : (isCompleted ? 'completed' : 'in_progress'),
     };
   }
   
