@@ -6,6 +6,7 @@ import {
 } from './types/alert-shipment.interface';
 import { GetAlertsDto } from './dto/get-alerts.dto';
 import { AcknowledgeAlertDto } from './dto/acknowledge-alert.dto';
+import { GetShipmentsDto, ShipmentStatus } from './dto/get-shipments.dto';
 import {
   DelayCalculatorService,
   ShipmentData,
@@ -265,6 +266,137 @@ export class AlertsService {
     return {
       message: `Shipment ${shipmentId} acknowledged by ${userId}`,
       acknowledgedAt: (data as ShipmentRow).acknowledged_at,
+    };
+  }
+
+  /**
+   * Get all shipments with filters (year, month, status)
+   * This includes both completed and incomplete shipments
+   */
+  async findAllShipments(filters: GetShipmentsDto): Promise<AlertsResponse> {
+    const supabase = this.supabase.getClient();
+    let query = supabase.from('shipments').select('*');
+
+    // Apply year filter
+    if (filters.year) {
+      const startDate = `${filters.year}-01-01T00:00:00Z`;
+      const endDate = `${filters.year}-12-31T23:59:59Z`;
+      query = query
+        .gte('order_date', startDate)
+        .lte('order_date', endDate);
+    }
+
+    // Apply month filter (requires year)
+    if (filters.month && filters.year) {
+      const monthStr = String(filters.month).padStart(2, '0');
+      const startDate = `${filters.year}-${monthStr}-01T00:00:00Z`;
+      const daysInMonth = new Date(filters.year, filters.month, 0).getDate();
+      const endDate = `${filters.year}-${monthStr}-${daysInMonth}T23:59:59Z`;
+      query = query
+        .gte('order_date', startDate)
+        .lte('order_date', endDate);
+    }
+
+    // Apply search filter
+    if (filters.search) {
+      const term = filters.search.toLowerCase();
+      query = query.or(
+        `shipment_id.ilike.%${term}%,origin_city.ilike.%${term}%,dest_city.ilike.%${term}%`,
+      );
+    }
+
+    const { data: shipments, error } = await query.order('order_date', {
+      ascending: false,
+    });
+
+    if (error) {
+      throw new Error(`Failed to fetch shipments: ${error.message}`);
+    }
+
+    if (!shipments || shipments.length === 0) {
+      return {
+        data: [],
+        meta: {
+          lastUpdated: new Date().toISOString(),
+          count: 0,
+        },
+      };
+    }
+
+    // Fetch all events for these shipments
+    const shipmentIds = shipments.map((s) => (s as ShipmentRow).shipment_id);
+    const { data: allEvents } = await supabase
+      .from('shipment_events')
+      .select('*')
+      .in('shipment_id', shipmentIds)
+      .order('event_time', { ascending: true });
+
+    // Group events by shipment_id
+    const eventsByShipment = new Map<string, EventRow[]>();
+    (allEvents || []).forEach((e) => {
+      const event = e as EventRow & { shipment_id: string };
+      if (!eventsByShipment.has(event.shipment_id)) {
+        eventsByShipment.set(event.shipment_id, []);
+      }
+      eventsByShipment.get(event.shipment_id)!.push({
+        event_time: event.event_time,
+        event_stage: event.event_stage,
+        description: event.description,
+        location: event.location,
+      });
+    });
+
+    // Calculate alerts for each shipment
+    const alerts: AlertShipment[] = [];
+
+    for (const shipment of shipments) {
+      const s = shipment as ShipmentRow;
+      const events = eventsByShipment.get(s.shipment_id) || [];
+
+      const shipmentData: ShipmentData = {
+        shipment_id: s.shipment_id,
+        order_date: s.order_date,
+        expected_delivery: s.expected_delivery,
+        current_status: s.current_status,
+        carrier: s.carrier,
+        mode: s.mode,
+        origin_city: s.origin_city,
+        dest_city: s.dest_city,
+        service_level: s.service_level,
+        owner: s.owner,
+        events: events.map((e) => ({
+          event_time: e.event_time,
+          event_stage: e.event_stage,
+          description: e.description || undefined,
+          location: e.location || undefined,
+        })),
+      };
+
+      // Apply status filter
+      const isCompleted = this.delayCalculator.isShipmentCompleted(shipmentData);
+      if (filters.status === ShipmentStatus.COMPLETED && !isCompleted) {
+        continue;
+      }
+      if (filters.status === ShipmentStatus.INCOMPLETE && isCompleted) {
+        continue;
+      }
+
+      const calculatedAlert = this.delayCalculator.calculateAlert(shipmentData);
+
+      alerts.push({
+        ...calculatedAlert,
+        acknowledged: s.acknowledged,
+        acknowledgedBy: s.acknowledged_by || undefined,
+        acknowledgedAt: s.acknowledged_at || undefined,
+      });
+    }
+
+    return {
+      data: alerts,
+      meta: {
+        lastUpdated: new Date().toISOString(),
+        count: alerts.length,
+      },
     };
   }
 }

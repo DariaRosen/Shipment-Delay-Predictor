@@ -43,5 +43,24 @@ export const apiClient = {
       throw new Error('Failed to acknowledge alert')
     }
   },
+
+  async getShipments(filters?: {
+    year?: number
+    month?: number
+    status?: 'all' | 'completed' | 'incomplete'
+    search?: string
+  }): Promise<AlertsResponse> {
+    const params = new URLSearchParams()
+    if (filters?.year) params.append('year', String(filters.year))
+    if (filters?.month) params.append('month', String(filters.month))
+    if (filters?.status) params.append('status', filters.status)
+    if (filters?.search) params.append('search', filters.search)
+
+    const response = await fetch(`${API_BASE_URL}/alerts/shipments/all?${params.toString()}`)
+    if (!response.ok) {
+      throw new Error('Failed to fetch shipments')
+    }
+    return response.json()
+  },
 }
 

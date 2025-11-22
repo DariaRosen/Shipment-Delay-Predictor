@@ -33,6 +33,7 @@ export interface CalculatedAlert {
   plannedEta: string;
   daysToEta: number;
   lastMilestoneUpdate: string;
+  orderDate?: string;
   riskScore: number;
   severity: 'High' | 'Medium' | 'Low';
   riskReasons: RiskReason[];
@@ -206,6 +207,7 @@ export class DelayCalculatorService {
       plannedEta: shipment.expected_delivery,
       daysToEta: Math.max(0, daysToEta),
       lastMilestoneUpdate: latestEvent?.event_time || shipment.order_date,
+      orderDate: shipment.order_date,
       riskScore: Math.round(riskScore),
       severity,
       riskReasons,

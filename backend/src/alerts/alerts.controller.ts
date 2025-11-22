@@ -2,6 +2,7 @@ import { Body, Controller, Get, Param, Post, Query } from '@nestjs/common';
 import { AlertsService } from './alerts.service';
 import { GetAlertsDto } from './dto/get-alerts.dto';
 import { AcknowledgeAlertDto } from './dto/acknowledge-alert.dto';
+import { GetShipmentsDto } from './dto/get-shipments.dto';
 
 @Controller('alerts')
 export class AlertsController {
@@ -20,5 +21,10 @@ export class AlertsController {
   @Post('acknowledge')
   async acknowledge(@Body() body: AcknowledgeAlertDto) {
     return this.alertsService.acknowledge(body);
+  }
+
+  @Get('shipments/all')
+  async findAllShipments(@Query() query: GetShipmentsDto) {
+    return this.alertsService.findAllShipments(query);
   }
 }

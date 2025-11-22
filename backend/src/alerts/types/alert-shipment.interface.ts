@@ -34,6 +34,7 @@ export interface AlertShipment {
   plannedEta: string;
   daysToEta: number;
   lastMilestoneUpdate: string;
+  orderDate?: string;
   riskScore: number;
   severity: Severity;
   riskReasons: RiskReason[];
