@@ -1,6 +1,6 @@
 import { ShipmentSearchPage } from './shipment-search-page'
 
-export default function Page() {
+export default function ShipmentSearchPageRoute() {
   return <ShipmentSearchPage />
 }
 

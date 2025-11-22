@@ -199,23 +199,13 @@ export class AlertsService {
 
       const calculatedAlert = this.delayCalculator.calculateAlert(shipmentData);
       
-      // Skip future shipments - they should not appear in alerts
-      if (calculatedAlert.status === 'future') {
-        continue;
-      }
-      
-      // Skip completed shipments - they should not appear in alerts
-      if (this.delayCalculator.isShipmentCompleted(shipmentData)) {
-        continue;
-      }
-      
-      // Skip canceled shipments - they should not appear in alerts
-      if (this.delayCalculator.isShipmentCanceled(shipmentData)) {
+      // Only include shipments that are in_progress (not completed, canceled, or future)
+      // Only in-progress shipments can be at risk
+      if (calculatedAlert.status !== 'in_progress') {
         continue;
       }
 
       // Only include shipments with risk factors (riskReasons or riskScore > 0)
-      // Completed and canceled shipments are already filtered out above
       if (calculatedAlert.riskReasons.length === 0 && calculatedAlert.riskScore === 0) {
         continue;
       }

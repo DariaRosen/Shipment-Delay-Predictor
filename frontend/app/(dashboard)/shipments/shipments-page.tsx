@@ -1,7 +1,7 @@
 'use client'
 
-import { useState, useMemo } from 'react'
-import { useRouter } from 'next/navigation'
+import { useState, useMemo, useEffect, useRef } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { useQuery } from '@tanstack/react-query'
 import { apiClient } from '@/lib/api-client'
 import { AlertShipment } from '@/types/alerts'
@@ -23,16 +23,84 @@ type SortField =
 
 type SortOrder = 'asc' | 'desc'
 
+type Filters = {
+  year?: number
+  month?: number
+  status?: 'all' | 'completed' | 'in_progress' | 'canceled' | 'future'
+  search?: string
+}
+
 export default function ShipmentsPage() {
   const router = useRouter()
-  const [filters, setFilters] = useState<{
-    year?: number
-    month?: number
-    status?: 'all' | 'completed' | 'in_progress' | 'canceled' | 'future'
-    search?: string
-  }>({})
+  const searchParams = useSearchParams()
+  
+  // Parse filters from URL query parameters
+  const parseFiltersFromUrl = useMemo((): Filters => {
+    const year = searchParams.get('year')
+    const month = searchParams.get('month')
+    const status = searchParams.get('status')
+    const search = searchParams.get('search')
+    
+    return {
+      year: year ? parseInt(year, 10) : undefined,
+      month: month ? parseInt(month, 10) : undefined,
+      status: status && ['all', 'completed', 'in_progress', 'canceled', 'future'].includes(status) 
+        ? (status as Filters['status'])
+        : undefined,
+      search: search || undefined,
+    }
+  }, [searchParams])
+  
+  const [filters, setFilters] = useState<Filters>(parseFiltersFromUrl)
   const [sortBy, setSortBy] = useState<SortField>('orderDate')
   const [sortOrder, setSortOrder] = useState<SortOrder>('desc')
+  const isUpdatingFromUrl = useRef(false)
+  
+  // Update filters when URL changes (e.g., browser back/forward)
+  useEffect(() => {
+    // Only update if filters actually changed to avoid infinite loops
+    setFilters((prevFilters) => {
+      const filtersChanged = 
+        parseFiltersFromUrl.year !== prevFilters.year ||
+        parseFiltersFromUrl.month !== prevFilters.month ||
+        parseFiltersFromUrl.status !== prevFilters.status ||
+        parseFiltersFromUrl.search !== prevFilters.search
+      
+      if (filtersChanged) {
+        isUpdatingFromUrl.current = true
+        // Reset flag after state update
+        setTimeout(() => {
+          isUpdatingFromUrl.current = false
+        }, 0)
+        return parseFiltersFromUrl
+      }
+      return prevFilters
+    })
+  }, [parseFiltersFromUrl])
+  
+  // Update URL when filters change (but not when updating from URL)
+  useEffect(() => {
+    // Skip URL update if we're updating from URL (to avoid infinite loop)
+    if (isUpdatingFromUrl.current) {
+      return
+    }
+    
+    const params = new URLSearchParams()
+    
+    if (filters.year) params.set('year', String(filters.year))
+    if (filters.month) params.set('month', String(filters.month))
+    if (filters.status && filters.status !== 'all') params.set('status', filters.status)
+    if (filters.search) params.set('search', filters.search)
+    
+    const newUrl = params.toString() 
+      ? `/shipments?${params.toString()}`
+      : '/shipments'
+    
+    const currentUrl = window.location.pathname + window.location.search
+    if (newUrl !== currentUrl) {
+      router.replace(newUrl, { scroll: false })
+    }
+  }, [filters, router])
 
   const { data, isLoading, error, dataUpdatedAt } = useQuery({
     queryKey: ['shipments', filters],
@@ -110,6 +178,10 @@ export default function ShipmentsPage() {
     return sorted
   }, [shipments, sortBy, sortOrder])
 
+  const handleFiltersChange = (newFilters: Filters) => {
+    setFilters(newFilters)
+  }
+  
   const handleSort = (field: SortField) => {
     if (sortBy === field) {
       setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc')
@@ -155,7 +227,7 @@ export default function ShipmentsPage() {
           )}
         </div>
 
-        <ShipmentsFilters filters={filters} onFiltersChange={setFilters} />
+        <ShipmentsFilters filters={filters} onFiltersChange={handleFiltersChange} />
 
         {isLoading ? (
           <Card className="border-teal-200 bg-white/95">
