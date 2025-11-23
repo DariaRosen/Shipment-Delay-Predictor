@@ -26,23 +26,23 @@ async function createApp(): Promise<any> {
   console.log('- NODE_ENV:', process.env.NODE_ENV);
 
   try {
-    // Suppress Express 4.x deprecation warnings
-    // This is a known issue with NestJS ExpressAdapter accessing app.router
-    const originalEmitWarning = process.emitWarning;
-    process.emitWarning = function(warning: any, ...args: any[]) {
-      if (typeof warning === 'string' && warning.includes("'app.router' is deprecated")) {
-        return; // Suppress this specific warning
-      }
-      return originalEmitWarning.apply(process, [warning, ...args]);
-    };
-    
     const server = express();
+    
+    // Patch Express to prevent app.router deprecation error
+    // NestJS ExpressAdapter accesses app.router which is deprecated in Express 4.x
+    // We create a router and attach it to prevent the error
+    const router = express.Router();
+    Object.defineProperty(server, 'router', {
+      get() {
+        return router;
+      },
+      configurable: true,
+      enumerable: false,
+    });
+    
     const app = await NestFactory.create(AppModule, new ExpressAdapter(server), {
       cors: false,
     });
-    
-    // Restore original emitWarning after NestJS initialization
-    process.emitWarning = originalEmitWarning;
 
   // Configure CORS to allow Vercel frontend URLs and localhost
   // For production, allow all Vercel domains; for development, be more restrictive
@@ -86,23 +86,24 @@ async function createApp(): Promise<any> {
     console.log('NestJS app initialized successfully');
     return server;
   } catch (error) {
-    // Ignore Express 4.x deprecation warnings about app.router
+    console.error('Failed to create NestJS app:', error);
     const errorMessage = error instanceof Error ? error.message : String(error);
+    const errorStack = error instanceof Error ? error.stack : undefined;
+    
+    console.error('Error details:', {
+      message: errorMessage,
+      stack: errorStack,
+    });
+    
+    // If it's the deprecation error, log it but don't fail completely
     if (errorMessage.includes("'app.router' is deprecated")) {
-      console.warn('Suppressed Express deprecation warning:', errorMessage);
-      // Try to continue - the app might still work despite the warning
+      console.warn('Express deprecation warning caught, but app should still work');
+      // If we somehow got here with a cached app, return it
       if (cachedApp) {
         return cachedApp;
       }
-      // If we don't have a cached app, we need to throw
-      throw new Error('Failed to initialize app after deprecation warning');
     }
     
-    console.error('Failed to create NestJS app:', error);
-    console.error('Error details:', {
-      message: errorMessage,
-      stack: error instanceof Error ? error.stack : undefined,
-    });
     throw error;
   }
 }
