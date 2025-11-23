@@ -176,10 +176,23 @@ export class DelayCalculatorService {
       riskReasons.push('StaleStatus');
     }
     
-    // MissedDeparture: Expected delivery passed but not delivered
-    if (expectedDelivery < now && latestEvent?.event_stage.toLowerCase().includes('delivered') !== true) {
-      riskReasons.push('MissedDeparture');
+    // MissedDeparture: Only for shipments that haven't reached ETA yet but are at risk
+    // For shipments with actual delays (past ETA), the delay is already accounted for in base score
+    // So we only flag this for shipments that are still before ETA but showing signs of delay
+    const daysPastEtaForCheck = (now.getTime() - expectedDelivery.getTime()) / (1000 * 60 * 60 * 24);
+    if (daysPastEtaForCheck <= 0) {
+      // Shipment hasn't reached ETA yet - check if it's at risk of missing departure
+      // If it's at an early stage and close to ETA, flag as MissedDeparture risk
+      const daysToEtaForCheck = -daysPastEtaForCheck;
+      const isEarlyStage = latestEvent?.event_stage.toLowerCase().includes('warehouse') ||
+                          latestEvent?.event_stage.toLowerCase().includes('prepared') ||
+                          latestEvent?.event_stage.toLowerCase().includes('packed') ||
+                          latestEvent?.event_stage.toLowerCase().includes('collected');
+      if (isEarlyStage && daysToEtaForCheck < 3 && latestEvent?.event_stage.toLowerCase().includes('delivered') !== true) {
+        riskReasons.push('MissedDeparture');
+      }
     }
+    // Note: For shipments past ETA, we don't add MissedDeparture since the delay is already in the base score
     
     // LongDwell: Stuck in same stage for too long
     const stageDwellTime = this.calculateStageDwellTime(shipment.events, latestEvent?.event_stage);
@@ -672,6 +685,20 @@ export class DelayCalculatorService {
     
     // Ensure steps are sorted by stepOrder (should already be, but enforce it)
     steps.sort((a, b) => a.stepOrder - b.stepOrder);
+    
+    // Ensure the final delivery step always uses the shipment's expected_delivery date
+    const finalDeliveryStepName = 'Package received by customer';
+    const finalStepIndex = steps.findIndex(step => 
+      step.stepName.toLowerCase().includes(finalDeliveryStepName.toLowerCase())
+    );
+    
+    if (finalStepIndex >= 0) {
+      // Set the final step's expected completion time to the planned ETA
+      steps[finalStepIndex] = {
+        ...steps[finalStepIndex],
+        expectedCompletionTime: plannedEtaForSteps.toISOString(),
+      };
+    }
     
     // Infer completion for required earlier steps when later steps are completed
     // This ensures logical consistency (e.g., if "Import customs clearance started" is completed,

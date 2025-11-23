@@ -4,8 +4,8 @@ import type { Mode, Severity } from '../types/alert-shipment.interface';
 
 export class GetAlertsDto {
   @IsOptional()
-  @IsEnum(['High', 'Medium', 'Low'], {
-    message: 'severity must be High, Medium, or Low',
+  @IsEnum(['Critical', 'High', 'Medium', 'Low', 'Minimal'], {
+    message: 'severity must be Critical, High, Medium, Low, or Minimal',
   })
   severity?: Severity;
 
