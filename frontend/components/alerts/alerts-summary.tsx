@@ -38,6 +38,7 @@ export const AlertsSummary = ({ alerts }: AlertsSummaryProps) => {
       .slice(0, 5)
   }, [alerts])
 
+  const criticalRiskCount = alerts.filter((a) => a.severity === 'Critical').length
   const highRiskCount = alerts.filter((a) => a.severity === 'High').length
 
   return (
@@ -49,7 +50,7 @@ export const AlertsSummary = ({ alerts }: AlertsSummaryProps) => {
         <CardContent>
           <div className="text-4xl font-bold text-teal-700">{alerts.length}</div>
           <p className="text-sm text-teal-600 mt-2">
-            {highRiskCount} high priority alerts
+            {criticalRiskCount} critical, {highRiskCount} high priority alerts
           </p>
         </CardContent>
       </Card>

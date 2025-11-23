@@ -8,9 +8,11 @@ interface SeverityDonutProps {
 }
 
 const COLORS = {
-  High: '#0F766E',
-  Medium: '#14B8A6',
-  Low: '#5EEAD4',
+  Critical: '#7F1D1D', // Dark red
+  High: '#DC2626', // Red
+  Medium: '#F59E0B', // Amber
+  Low: '#14B8A6', // Teal
+  Minimal: '#5EEAD4', // Light teal
 }
 
 const CustomTooltip = ({ active, payload }: any) => {
@@ -41,24 +43,26 @@ export const SeverityDonut = ({ data }: SeverityDonutProps) => {
     <ResponsiveContainer width="100%" height={250}>
       <PieChart>
         <Pie
-          data={data}
+          data={data.map(entry => ({ name: entry.severity, value: entry.count }))}
           cx="50%"
           cy="50%"
           labelLine={false}
-          label={({ severity, count }) => {
-            const percentage = total > 0 ? ((count / total) * 100).toFixed(0) : '0'
-            return `${severity}: ${percentage}%`
+          label={({ name, value }: any) => {
+            const percentage = total > 0 ? ((value / total) * 100).toFixed(0) : '0'
+            return `${name}: ${percentage}%`
           }}
           outerRadius={80}
           fill="#8884d8"
-          dataKey="count"
+          dataKey="value"
         >
-          {data.map((entry) => (
-            <Cell key={entry.severity} fill={COLORS[entry.severity]} />
+          {data.map((entry, index) => (
+            <Cell key={`cell-${index}`} fill={COLORS[entry.severity]} />
           ))}
         </Pie>
         <Tooltip content={<CustomTooltip />} />
-        <Legend />
+        <Legend 
+          formatter={(value) => value}
+        />
       </PieChart>
     </ResponsiveContainer>
   )

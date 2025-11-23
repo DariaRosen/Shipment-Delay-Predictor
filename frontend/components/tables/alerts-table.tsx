@@ -24,9 +24,11 @@ interface AlertsTableProps {
 }
 
 const severityColors: Record<Severity, string> = {
+  Critical: 'bg-red-900 text-white border-red-950',
   High: 'bg-red-100 text-red-800 border-red-200',
   Medium: 'bg-orange-100 text-orange-800 border-orange-200',
-  Low: 'bg-green-100 text-green-800 border-green-200',
+  Low: 'bg-yellow-100 text-yellow-800 border-yellow-200',
+  Minimal: 'bg-green-100 text-green-800 border-green-200',
 }
 
 const getModeIcon = (mode: string) => {

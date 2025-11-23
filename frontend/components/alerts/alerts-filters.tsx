@@ -118,9 +118,11 @@ export const AlertsFilters = ({ filters, onFiltersChange, carriers }: AlertsFilt
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">All Risk Scores</SelectItem>
+            <SelectItem value="Critical">Critical</SelectItem>
             <SelectItem value="High">High</SelectItem>
             <SelectItem value="Medium">Medium</SelectItem>
             <SelectItem value="Low">Low</SelectItem>
+            <SelectItem value="Minimal">Minimal</SelectItem>
           </SelectContent>
         </Select>
       </div>

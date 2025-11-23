@@ -1,4 +1,4 @@
-export type Severity = 'High' | 'Medium' | 'Low'
+export type Severity = 'Critical' | 'High' | 'Medium' | 'Low' | 'Minimal'
 
 export type Mode = 'Air' | 'Sea' | 'Road'
 

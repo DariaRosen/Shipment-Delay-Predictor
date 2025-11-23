@@ -33,6 +33,7 @@
     "reset:db": "ts-node -r dotenv/config scripts/reset-and-seed-database.ts",
     "verify:new-data": "ts-node -r dotenv/config scripts/verify-new-data.ts",
     "check:in-progress": "ts-node -r dotenv/config scripts/check-all-in-progress-shipments.ts",
+    "check:ld0072": "ts-node -r dotenv/config scripts/check-ld0072-detail.ts",
     "ensure:refund-events": "ts-node -r dotenv/config scripts/ensure-refund-events.ts",
     "find:cancel": "ts-node -r dotenv/config scripts/find-shipments-to-cancel.ts",
     "fix:all-canceled": "ts-node -r dotenv/config scripts/fix-all-canceled-shipments.ts",
