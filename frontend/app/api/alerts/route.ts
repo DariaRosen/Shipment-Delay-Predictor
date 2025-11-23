@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSupabaseClient } from '@/lib/supabase';
-import { DelayCalculatorService, ShipmentData } from '@/lib/services/delay-calculator';
-import type { AlertsResponse, AlertsFilters, AlertShipment } from '@/types/alerts';
+import { calculateShipmentAlert } from '@/lib/api/calculate-shipment-alert';
+import type { AlertsResponse, AlertsFilters } from '@/types/alerts';
 
 export async function GET(request: NextRequest) {
   try {
@@ -73,37 +73,17 @@ export async function GET(request: NextRequest) {
       });
     });
 
-    // Calculate alerts
-    const delayCalculator = new DelayCalculatorService();
+    // Calculate alerts using shared function
     const alerts: AlertShipment[] = [];
     const severityCounts = { Critical: 0, High: 0, Medium: 0, Low: 0, Minimal: 0 };
 
+    // Use SHARED calculation function to ensure consistency with /api/alerts/[shipmentId]
     for (const shipment of shipments) {
       const s = shipment as any;
       const events = eventsByShipment.get(s.shipment_id) || [];
 
-      const shipmentData: ShipmentData = {
-        shipment_id: s.shipment_id,
-        order_date: s.order_date,
-        expected_delivery: s.expected_delivery,
-        current_status: s.current_status,
-        carrier: s.carrier,
-        mode: s.mode,
-        origin_city: s.origin_city,
-        origin_country: s.origin_country,
-        dest_city: s.dest_city,
-        dest_country: s.dest_country,
-        service_level: s.service_level,
-        owner: s.owner,
-        events: events.map((e) => ({
-          event_time: e.event_time,
-          event_stage: e.event_stage,
-          description: e.description || undefined,
-          location: e.location || undefined,
-        })),
-      };
-
-      const calculatedAlert = delayCalculator.calculateAlert(shipmentData);
+      // Use shared calculation function - same as detail page endpoint
+      const calculatedAlert = calculateShipmentAlert(s, events);
 
       // Count all calculated severities (before filtering)
       severityCounts[calculatedAlert.severity]++;
@@ -124,12 +104,7 @@ export async function GET(request: NextRequest) {
         continue;
       }
 
-      alerts.push({
-        ...calculatedAlert,
-        acknowledged: s.acknowledged,
-        acknowledgedBy: s.acknowledged_by || undefined,
-        acknowledgedAt: s.acknowledged_at || undefined,
-      });
+      alerts.push(calculatedAlert);
     }
 
     // Log severity distribution for debugging
