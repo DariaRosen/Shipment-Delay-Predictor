@@ -26,10 +26,23 @@ async function createApp(): Promise<any> {
   console.log('- NODE_ENV:', process.env.NODE_ENV);
 
   try {
+    // Suppress Express 4.x deprecation warnings
+    // This is a known issue with NestJS ExpressAdapter accessing app.router
+    const originalEmitWarning = process.emitWarning;
+    process.emitWarning = function(warning: any, ...args: any[]) {
+      if (typeof warning === 'string' && warning.includes("'app.router' is deprecated")) {
+        return; // Suppress this specific warning
+      }
+      return originalEmitWarning.apply(process, [warning, ...args]);
+    };
+    
     const server = express();
     const app = await NestFactory.create(AppModule, new ExpressAdapter(server), {
       cors: false,
     });
+    
+    // Restore original emitWarning after NestJS initialization
+    process.emitWarning = originalEmitWarning;
 
   // Configure CORS to allow Vercel frontend URLs and localhost
   // For production, allow all Vercel domains; for development, be more restrictive
@@ -73,9 +86,21 @@ async function createApp(): Promise<any> {
     console.log('NestJS app initialized successfully');
     return server;
   } catch (error) {
+    // Ignore Express 4.x deprecation warnings about app.router
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    if (errorMessage.includes("'app.router' is deprecated")) {
+      console.warn('Suppressed Express deprecation warning:', errorMessage);
+      // Try to continue - the app might still work despite the warning
+      if (cachedApp) {
+        return cachedApp;
+      }
+      // If we don't have a cached app, we need to throw
+      throw new Error('Failed to initialize app after deprecation warning');
+    }
+    
     console.error('Failed to create NestJS app:', error);
     console.error('Error details:', {
-      message: error instanceof Error ? error.message : 'Unknown error',
+      message: errorMessage,
       stack: error instanceof Error ? error.stack : undefined,
     });
     throw error;
