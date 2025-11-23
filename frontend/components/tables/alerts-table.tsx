@@ -15,7 +15,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from '@/components/ui/tooltip'
-import { AlertShipment, Severity, RiskReason } from '@/types/alerts'
+import { AlertShipment, Severity, RiskReason, RiskFactorPoints } from '@/types/alerts'
 import { getRiskFactorExplanation, formatRiskReason } from '@/lib/risk-factor-explanations'
 
 interface AlertsTableProps {
@@ -96,33 +96,116 @@ export const AlertsTable = ({ alerts, onRowClick }: AlertsTableProps) => {
               </TableCell>
               <TableCell>
                 <TooltipProvider>
-                  <div className="flex gap-1 flex-wrap">
-                    {alert.riskReasons.map((reason) => {
-                      const explanation = getRiskFactorExplanation(reason)
-                      return (
-                        <Tooltip
-                          key={reason}
-                          content={
-                            <div className="space-y-1">
-                              <div className="font-semibold text-teal-900">
-                                {explanation.name}
-                              </div>
-                              <div className="text-xs text-teal-700 leading-relaxed">
-                                {explanation.description}
-                              </div>
-                              <div className="text-xs text-teal-600 mt-1">
-                                Severity: <span className="font-medium">{explanation.severity}</span>
-                              </div>
-                            </div>
+                  <div className="flex gap-1.5 flex-wrap items-center">
+                    {alert.riskFactorPoints && alert.riskFactorPoints.length > 0 ? (
+                      // Show risk factors with points breakdown
+                      alert.riskFactorPoints
+                        .filter((rfp: RiskFactorPoints) => {
+                          // Skip Delayed if it has 0 points (delay already shown in base score)
+                          if (rfp.factor === 'Delayed' && rfp.points === 0) {
+                            return false;
                           }
-                          side="top"
-                        >
-                          <span className="text-lg cursor-help" aria-label={explanation.name}>
-                            {getRiskIcon(reason)}
-                          </span>
-                        </Tooltip>
-                      )
-                    })}
+                          return true;
+                        })
+                        .sort((a: RiskFactorPoints, b: RiskFactorPoints) => {
+                          // Sort: BaseScore first, then by points descending
+                          if (a.factor === 'BaseScore') return -1;
+                          if (b.factor === 'BaseScore') return 1;
+                          return b.points - a.points;
+                        })
+                        .map((rfp: RiskFactorPoints, index: number) => {
+                          // Get explanation for risk reason factors
+                          const explanation = rfp.factor !== 'BaseScore' && 
+                            rfp.factor !== 'LongDistance' && 
+                            rfp.factor !== 'International' &&
+                            rfp.factor !== 'PeakSeason' &&
+                            rfp.factor !== 'WeekendDelay' &&
+                            rfp.factor !== 'ExpressRisk'
+                            ? getRiskFactorExplanation(rfp.factor as RiskReason)
+                            : null;
+                          
+                          const factorName = explanation?.name || 
+                            (rfp.factor === 'BaseScore' ? 'Base Score' :
+                             rfp.factor === 'LongDistance' ? 'Long Distance' :
+                             rfp.factor === 'International' ? 'International' :
+                             rfp.factor === 'PeakSeason' ? 'Peak Season' :
+                             rfp.factor === 'WeekendDelay' ? 'Weekend Delay' :
+                             rfp.factor === 'ExpressRisk' ? 'Express Risk' :
+                             rfp.factor);
+                          
+                          const factorIcon = explanation?.icon || 
+                            (rfp.factor === 'BaseScore' ? '🎯' :
+                             rfp.factor === 'LongDistance' ? '📏' :
+                             rfp.factor === 'International' ? '🌍' :
+                             rfp.factor === 'PeakSeason' ? '🎄' :
+                             rfp.factor === 'WeekendDelay' ? '📅' :
+                             rfp.factor === 'ExpressRisk' ? '⚡' :
+                             '⚠️');
+                          
+                          const tooltipDescription = rfp.description || explanation?.description || '';
+                          
+                          return (
+                            <Tooltip
+                              key={`${rfp.factor}-${index}`}
+                              content={
+                                <div className="space-y-1">
+                                  <div className="font-semibold text-teal-900">
+                                    {factorName}
+                                  </div>
+                                  {tooltipDescription && (
+                                    <div className="text-xs text-teal-700 leading-relaxed">
+                                      {tooltipDescription}
+                                    </div>
+                                  )}
+                                  {explanation && (
+                                    <div className="text-xs text-teal-600 mt-1">
+                                      Severity: <span className="font-medium">{explanation.severity}</span>
+                                    </div>
+                                  )}
+                                </div>
+                              }
+                              side="top"
+                            >
+                              <div className="flex items-center gap-1 px-1.5 py-0.5 bg-teal-50 border border-teal-200 rounded text-xs">
+                                <span className="text-sm" aria-label={factorName}>
+                                  {factorIcon}
+                                </span>
+                                <span className="font-semibold text-teal-900">
+                                  +{rfp.points}
+                                </span>
+                              </div>
+                            </Tooltip>
+                          );
+                        })
+                    ) : (
+                      // Fallback: show risk reasons without points (for backwards compatibility)
+                      alert.riskReasons.map((reason) => {
+                        const explanation = getRiskFactorExplanation(reason)
+                        return (
+                          <Tooltip
+                            key={reason}
+                            content={
+                              <div className="space-y-1">
+                                <div className="font-semibold text-teal-900">
+                                  {explanation.name}
+                                </div>
+                                <div className="text-xs text-teal-700 leading-relaxed">
+                                  {explanation.description}
+                                </div>
+                                <div className="text-xs text-teal-600 mt-1">
+                                  Severity: <span className="font-medium">{explanation.severity}</span>
+                                </div>
+                              </div>
+                            }
+                            side="top"
+                          >
+                            <span className="text-lg cursor-help" aria-label={explanation.name}>
+                              {getRiskIcon(reason)}
+                            </span>
+                          </Tooltip>
+                        )
+                      })
+                    )}
                   </div>
                 </TooltipProvider>
               </TableCell>

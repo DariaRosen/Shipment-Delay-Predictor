@@ -7,6 +7,7 @@ export type RiskReason =
   | 'PortCongestion'
   | 'CustomsHold'
   | 'MissedDeparture'
+  | 'Delayed'
   | 'LongDwell'
   | 'NoPickup'
   | 'HubCongestion'
@@ -24,6 +25,12 @@ export interface ShipmentStep {
   location?: string
 }
 
+export interface RiskFactorPoints {
+  factor: RiskReason | 'BaseScore' | 'LongDistance' | 'International' | 'PeakSeason' | 'WeekendDelay' | 'ExpressRisk'
+  points: number
+  description?: string
+}
+
 export interface AlertShipment {
   shipmentId: string
   origin: string
@@ -39,6 +46,7 @@ export interface AlertShipment {
   riskScore: number
   severity: Severity
   riskReasons: RiskReason[]
+  riskFactorPoints?: RiskFactorPoints[] // Breakdown of how the risk score is calculated
   owner: string
   acknowledged: boolean
   acknowledgedBy?: string

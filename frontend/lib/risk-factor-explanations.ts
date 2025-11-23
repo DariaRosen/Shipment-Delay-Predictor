@@ -32,6 +32,12 @@ export const RISK_FACTOR_EXPLANATIONS: Record<RiskReason, RiskFactorExplanation>
     icon: '❌',
     severity: 'High',
   },
+  Delayed: {
+    name: 'Delivery Delayed',
+    description: 'Shipment has passed its expected delivery date. The shipment is behind schedule and may require attention to resolve the delay and ensure timely delivery.',
+    icon: '⏰',
+    severity: 'High',
+  },
   LongDwell: {
     name: 'Long Dwell Time',
     description: 'Shipment has been stuck in the same stage/location for more than 2 days. Extended dwell times indicate processing delays, operational inefficiencies, or bottlenecks at specific points in the supply chain.',

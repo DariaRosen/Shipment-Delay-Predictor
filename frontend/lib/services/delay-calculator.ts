@@ -1,4 +1,4 @@
-import { RiskReason, ShipmentStep } from '@/types/alerts';
+import { RiskReason, ShipmentStep, RiskFactorPoints } from '@/types/alerts';
 import { generateShipmentSteps } from './shipment-steps-generator';
 import { calculateCityDistance } from './distance-calculator';
 
@@ -40,6 +40,7 @@ export interface CalculatedAlert {
   riskScore: number;
   severity: 'Critical' | 'High' | 'Medium' | 'Low' | 'Minimal';
   riskReasons: RiskReason[];
+  riskFactorPoints?: RiskFactorPoints[];
   owner: string;
   acknowledged: boolean;
   acknowledgedBy?: string;
@@ -264,6 +265,13 @@ export class DelayCalculatorService {
       riskReasons.push('DocsMissing');
     }
     
+    // Delayed: Shipment is past ETA but doesn't have other specific risk factors
+    // This ensures all delayed shipments show at least one risk factor badge
+    // Check this AFTER all other risk factors are calculated
+    if (daysPastEtaForCheck > 0 && riskReasons.length === 0) {
+      riskReasons.push('Delayed');
+    }
+    
     // ============================================
     // RISK SCORING ENGINE - Based on Actual Delay + Additional Risk Factors
     // ============================================
@@ -313,6 +321,30 @@ export class DelayCalculatorService {
     // Start with base score
     let riskScore = baseRiskScore;
     
+    // Track all point contributions
+    const riskFactorPoints: RiskFactorPoints[] = [];
+    
+    // Add base score contribution
+    if (baseRiskScore > 0) {
+      let baseDescription = '';
+      if (hasActualDelay) {
+        if (daysPastEtaRounded >= fewDaysDelay) {
+          baseDescription = originalTimelineDays <= notManyDaysForOriginalEta
+            ? `Critical delay: ${daysPastEtaRounded} days past ETA (short timeline)`
+            : `High delay: ${daysPastEtaRounded} days past ETA`;
+        } else if (daysPastEtaRounded >= oneDayDelay) {
+          baseDescription = originalTimelineDays <= notManyDaysForOriginalEta
+            ? `Medium delay: 1 day past ETA (short timeline)`
+            : `Low delay: 1 day past ETA`;
+        }
+      }
+      riskFactorPoints.push({
+        factor: 'BaseScore' as any,
+        points: baseRiskScore,
+        description: baseDescription || `Base risk score for ${severity} severity`,
+      });
+    }
+    
     // ============================================
     // ADDITIONAL RISK FACTORS (add points on top of base score)
     // ============================================
@@ -327,43 +359,65 @@ export class DelayCalculatorService {
     
     // Operational Risk Factors (higher impact)
     if (riskReasons.includes('CustomsHold')) {
-      riskScore += 8; // Customs hold - significant operational issue
+      riskScore += 8;
+      riskFactorPoints.push({ factor: 'CustomsHold', points: 8 });
     }
     if (riskReasons.includes('PortCongestion')) {
-      riskScore += 7; // Port congestion - significant operational issue
+      riskScore += 7;
+      riskFactorPoints.push({ factor: 'PortCongestion', points: 7 });
     }
     if (riskReasons.includes('HubCongestion')) {
-      riskScore += 6; // Hub congestion - operational issue
+      riskScore += 6;
+      riskFactorPoints.push({ factor: 'HubCongestion', points: 6 });
     }
     if (riskReasons.includes('MissedDeparture')) {
-      riskScore += 8; // Missed departure - significant issue
+      riskScore += 8;
+      riskFactorPoints.push({ factor: 'MissedDeparture', points: 8 });
     }
     if (riskReasons.includes('NoPickup')) {
-      riskScore += 5; // No pickup - operational issue
+      riskScore += 5;
+      riskFactorPoints.push({ factor: 'NoPickup', points: 5 });
     }
     if (riskReasons.includes('LongDwell')) {
-      riskScore += 6; // Long dwell time - operational issue
+      riskScore += 6;
+      riskFactorPoints.push({ factor: 'LongDwell', points: 6 });
     }
     
     // External Risk Factors (medium impact)
     if (riskReasons.includes('WeatherAlert')) {
-      riskScore += 7; // Weather alert - external factor
+      riskScore += 7;
+      riskFactorPoints.push({ factor: 'WeatherAlert', points: 7 });
     }
     if (riskReasons.includes('CapacityShortage')) {
-      riskScore += 6; // Capacity shortage - operational issue
+      riskScore += 6;
+      riskFactorPoints.push({ factor: 'CapacityShortage', points: 6 });
     }
     if (riskReasons.includes('DocsMissing')) {
-      riskScore += 7; // Missing documentation - operational issue
+      riskScore += 7;
+      riskFactorPoints.push({ factor: 'DocsMissing', points: 7 });
     }
     
     // Status Risk Factors (lower impact, but still relevant)
     if (riskReasons.includes('StaleStatus')) {
-      riskScore += 4; // Stale status - no recent update
+      riskScore += 4;
+      riskFactorPoints.push({ factor: 'StaleStatus', points: 4 });
+    }
+    
+    // Delayed shipments (base score already accounts for delay, but show it for visibility)
+    if (riskReasons.includes('Delayed')) {
+      // Don't add points since delay is already in base score
+      // But add it to the breakdown for visibility (0 points, just shows the factor)
+      riskFactorPoints.push({ 
+        factor: 'Delayed', 
+        points: 0,
+        description: 'Delivery delayed (points already included in base score)'
+      });
     }
     
     // Lost shipments (only for canceled)
     if (riskReasons.includes('Lost')) {
-      riskScore += 10; // Lost shipment - critical issue
+      riskScore += 10;
+      riskFactorPoints.push({ factor: 'Lost', points: 10 });
     }
     
     // Additional contextual factors (smaller additions)
@@ -373,24 +427,33 @@ export class DelayCalculatorService {
       const distance = calculateCityDistance(shipment.origin_city, shipment.dest_city);
       if (distance !== null) {
         const mode = shipment.mode.toLowerCase();
+        let distancePoints = 0;
         if (mode === 'air') {
           if (distance > 12000) {
-            riskScore += 2; // Very long distance
+            distancePoints = 2; // Very long distance
           } else if (distance > 8000) {
-            riskScore += 1; // Long distance
+            distancePoints = 1; // Long distance
           }
         } else if (mode === 'sea') {
           if (distance > 15000) {
-            riskScore += 2; // Very long distance
+            distancePoints = 2; // Very long distance
           } else if (distance > 10000) {
-            riskScore += 1; // Long distance
+            distancePoints = 1; // Long distance
           }
         } else if (mode === 'road') {
           if (distance > 3000) {
-            riskScore += 2; // Very long distance
+            distancePoints = 2; // Very long distance
           } else if (distance > 2000) {
-            riskScore += 1; // Long distance
+            distancePoints = 1; // Long distance
           }
+        }
+        if (distancePoints > 0) {
+          riskScore += distancePoints;
+          riskFactorPoints.push({ 
+            factor: 'LongDistance' as any, 
+            points: distancePoints,
+            description: `Very long shipping distance (${Math.round(distance)} km)`
+          });
         }
       }
       
@@ -399,13 +462,23 @@ export class DelayCalculatorService {
                              shipment.dest_country && 
                              shipment.origin_country.toLowerCase() !== shipment.dest_country.toLowerCase();
       if (isInternational) {
-        riskScore += 1; // International shipment
+        riskScore += 1;
+        riskFactorPoints.push({ 
+          factor: 'International' as any, 
+          points: 1,
+          description: 'International shipment'
+        });
       }
       
       // Peak Season (November, December)
       const orderMonth = new Date(shipment.order_date).getMonth() + 1; // 1-12
       if (orderMonth === 11 || orderMonth === 12) {
-        riskScore += 1; // Holiday season
+        riskScore += 1;
+        riskFactorPoints.push({ 
+          factor: 'PeakSeason' as any, 
+          points: 1,
+          description: 'Peak holiday season (Nov/Dec)'
+        });
       }
       
       // Weekend processing limitations (only if stuck)
@@ -415,7 +488,12 @@ export class DelayCalculatorService {
                                  latestEvent?.event_stage.toLowerCase().includes('hub');
       const isStuck = daysSinceLastEvent > 1;
       if ((currentDayOfWeek === 0 || currentDayOfWeek === 6) && requiresProcessing && isStuck) {
-        riskScore += 1; // Weekend processing delay
+        riskScore += 1;
+        riskFactorPoints.push({ 
+          factor: 'WeekendDelay' as any, 
+          points: 1,
+          description: 'Weekend processing delay'
+        });
       }
       
       // Express service level (tighter timelines)
@@ -423,7 +501,12 @@ export class DelayCalculatorService {
         if (daysToEta < 2 && 
             !latestEvent?.event_stage.toLowerCase().includes('delivery') &&
             !latestEvent?.event_stage.toLowerCase().includes('pickup')) {
-          riskScore += 2; // Express shipment not meeting expectations
+          riskScore += 2;
+          riskFactorPoints.push({ 
+            factor: 'ExpressRisk' as any, 
+            points: 2,
+            description: 'Express service not meeting timeline expectations'
+          });
         }
       }
     }
@@ -869,6 +952,20 @@ export class DelayCalculatorService {
     
     const isCompleted = isCompletedByEvents || isCompletedBySteps;
 
+    // If canceled, set score to 100 and add Lost risk factor
+    const finalRiskScore = isCanceled ? 100 : Math.round(riskScore);
+    const finalRiskReasons = isCanceled ? [...riskReasons, 'Lost'] as RiskReason[] : riskReasons;
+    
+    // If canceled, update risk factor points to show 100 = Lost (10) + base (90)
+    let finalRiskFactorPoints = riskFactorPoints;
+    if (isCanceled) {
+      // Replace existing points with canceled breakdown
+      finalRiskFactorPoints = [
+        { factor: 'Lost', points: 10, description: 'Shipment lost or canceled' },
+        { factor: 'BaseScore' as any, points: 90, description: 'Base score for canceled shipment' }
+      ];
+    }
+
     return {
       shipmentId: shipment.shipment_id,
       origin: shipment.origin_city,
@@ -881,9 +978,10 @@ export class DelayCalculatorService {
       daysToEta: Math.max(0, daysToEta),
       lastMilestoneUpdate: latestEvent?.event_time || shipment.order_date,
       orderDate: shipment.order_date,
-      riskScore: isCanceled ? 100 : Math.round(riskScore), // Max risk score for canceled
+      riskScore: finalRiskScore,
       severity: isCanceled ? 'Critical' : severity,
-      riskReasons: isCanceled ? [...riskReasons, 'Lost'] as RiskReason[] : riskReasons,
+      riskReasons: finalRiskReasons,
+      riskFactorPoints: finalRiskFactorPoints.length > 0 ? finalRiskFactorPoints : undefined,
       owner: shipment.owner,
       acknowledged: false, // Will be set from shipments table
       steps: finalSteps,
