@@ -41,7 +41,7 @@ export function AlertsDashboardPage() {
             <div className="text-sm text-muted-foreground">
               <p><strong>Error:</strong> {errorMessage}</p>
               <p className="mt-2">
-                <strong>API URL:</strong> {process.env.NEXT_PUBLIC_API_URL || 'Not set'}
+                <strong>API URL:</strong> /api (Next.js API routes)
               </p>
               <p className="mt-2 text-xs">
                 Check the browser console for more details.

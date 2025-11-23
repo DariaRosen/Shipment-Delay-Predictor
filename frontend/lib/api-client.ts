@@ -1,28 +1,12 @@
 import { AlertShipment, AlertsResponse, AlertsFilters } from '@/types/alerts'
 
-// Use relative paths for Next.js API routes (same project)
-// Fallback to external URL for development with separate backend
-const getApiBaseUrl = () => {
-  // If NEXT_PUBLIC_API_URL is set and points to external backend, use it
-  // Otherwise use relative path for Next.js API routes
-  if (process.env.NEXT_PUBLIC_API_URL && !process.env.NEXT_PUBLIC_API_URL.startsWith('/')) {
-    const url = process.env.NEXT_PUBLIC_API_URL
-    const cleanUrl = url.replace(/\/$/, '')
-    if (!cleanUrl.endsWith('/api') && !cleanUrl.includes('localhost:3001')) {
-      return `${cleanUrl}/api`
-    }
-    return cleanUrl
-  }
-  // Use relative path for Next.js API routes
-  return '/api'
-}
-
-const API_BASE_URL = getApiBaseUrl()
+// Always use relative paths for Next.js API routes (same project)
+// The backend has been migrated to Next.js API routes, so we always use '/api'
+const API_BASE_URL = '/api'
 
 // Log API URL in development
 if (typeof window !== 'undefined' && process.env.NODE_ENV === 'development') {
   console.log('API Base URL:', API_BASE_URL)
-  console.log('NEXT_PUBLIC_API_URL env:', process.env.NEXT_PUBLIC_API_URL)
 }
 
 export const apiClient = {

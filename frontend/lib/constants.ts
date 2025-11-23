@@ -1,4 +1,6 @@
-export const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api'
+// Always use relative paths for Next.js API routes (same project)
+// The backend has been migrated to Next.js API routes, so we always use '/api'
+export const API_BASE_URL = '/api'
 
 export const REFETCH_INTERVAL = 2 * 60 * 1000 // 2 minutes
 
