@@ -694,10 +694,14 @@ export class DelayCalculatorService {
     let finalSteps = steps.length > 0 ? steps : allExpectedSteps;
 
     // Check if there's a refund event in the actual events (from database)
+    // Also check if status is "Canceled" - this is the primary indicator
     const refundEvent = shipment.events.find(e => 
       e.event_stage.toLowerCase().includes('refund') || 
       e.event_stage.toLowerCase().includes('refound')
     );
+    
+    const isCanceledStatus = shipment.current_status && 
+      shipment.current_status.toLowerCase().includes('canceled');
 
     // Check if refund step already exists in the timeline
     const hasRefundStep = finalSteps.some(s => 
@@ -705,56 +709,71 @@ export class DelayCalculatorService {
       s.stepName.toLowerCase().includes('refound')
     );
 
-    // If canceled or has refund event, update current stage and add refund step
-    if ((isCanceled || refundEvent) && !hasRefundStep) {
+    // If canceled status, refund event exists, or isCanceled is true, add refund step
+    // Always add refund step for canceled shipments, even if it already exists (to ensure it's shown)
+    if (isCanceledStatus || isCanceled || refundEvent) {
       finalCurrentStage = 'Refund customer';
       
-      // Use refund event if it exists, otherwise create one
-      if (refundEvent) {
-        // Add refund step from actual event
-        const refundStep = {
-          stepName: refundEvent.event_stage,
-          stepDescription: refundEvent.description || 'Refund has been processed.',
-          expectedCompletionTime: refundEvent.event_time,
-          actualCompletionTime: refundEvent.event_time,
-          stepOrder: finalSteps.length + 1,
-          location: refundEvent.location || undefined,
-        };
+      // Only add if it doesn't already exist
+      if (!hasRefundStep) {
+        // Calculate the maximum stepOrder to ensure refund is always last
+        const maxStepOrder = finalSteps.length > 0 
+          ? Math.max(...finalSteps.map(s => s.stepOrder || 0))
+          : 0;
+        const refundStepOrder = maxStepOrder + 1;
         
-        finalSteps = [...finalSteps, refundStep];
-      } else {
-        // Both conditions must be met for cancellation
-        const dwellTime = this.calculateStageDwellTime(shipment.events, shipment.current_status);
-        const now = new Date();
-        const expectedDelivery = new Date(shipment.expected_delivery);
-        const daysPastEta = (now.getTime() - expectedDelivery.getTime()) / (1000 * 60 * 60 * 24);
+        // Use refund event if it exists, otherwise create one
+        if (refundEvent) {
+          // Add refund step from actual event - ensure it's after the last step
+          const lastStepTime = finalSteps.length > 0 && finalSteps[finalSteps.length - 1].actualCompletionTime
+            ? new Date(finalSteps[finalSteps.length - 1].actualCompletionTime).getTime()
+            : new Date().getTime();
+          
+          const refundEventTime = new Date(refundEvent.event_time).getTime();
+          // Ensure refund happens after the last step, but use the actual event time if it's valid
+          const refundTime = refundEventTime > lastStepTime ? refundEventTime : lastStepTime + (60 * 60 * 1000); // 1 hour after last step
+          
+          const refundStep = {
+            stepName: refundEvent.event_stage,
+            stepDescription: refundEvent.description || 'Refund has been processed.',
+            expectedCompletionTime: new Date(refundTime).toISOString(),
+            actualCompletionTime: new Date(refundTime).toISOString(),
+            stepOrder: refundStepOrder,
+            location: refundEvent.location || undefined,
+          };
+          
+          finalSteps = [...finalSteps, refundStep];
+        } else {
+          // Both conditions must be met for cancellation
+          const dwellTime = this.calculateStageDwellTime(shipment.events, shipment.current_status);
+          const now = new Date();
+          const expectedDelivery = new Date(shipment.expected_delivery);
+          const daysPastEta = (now.getTime() - expectedDelivery.getTime()) / (1000 * 60 * 60 * 24);
+          
+          const cancellationReason = `Shipment was stuck in the same step for more than 30 days (${Math.floor(dwellTime)} days) and is ${Math.floor(daysPastEta)} days past the expected delivery date (14+ days delay).`;
+          
+          // Ensure refund happens after the last step
+          const lastStepTime = finalSteps.length > 0 && finalSteps[finalSteps.length - 1].actualCompletionTime
+            ? new Date(finalSteps[finalSteps.length - 1].actualCompletionTime).getTime()
+            : new Date().getTime();
+          const refundTime = lastStepTime + (60 * 60 * 1000); // 1 hour after last step
+          
+          // Add refund step as the last step
+          const refundStep = {
+            stepName: 'Refund customer',
+            stepDescription: `${cancellationReason} Refund has been processed.`,
+            expectedCompletionTime: new Date(refundTime).toISOString(),
+            actualCompletionTime: new Date(refundTime).toISOString(),
+            stepOrder: refundStepOrder,
+            location: undefined,
+          };
+          
+          finalSteps = [...finalSteps, refundStep];
+        }
         
-        const cancellationReason = `Shipment was stuck in the same step for more than 30 days (${Math.floor(dwellTime)} days) and is ${Math.floor(daysPastEta)} days past the expected delivery date (14+ days delay).`;
-        
-        // Add refund step as the last step
-        const refundStep = {
-          stepName: 'Refund customer',
-          stepDescription: `${cancellationReason} Refund has been processed.`,
-          expectedCompletionTime: new Date().toISOString(),
-          actualCompletionTime: new Date().toISOString(),
-          stepOrder: finalSteps.length + 1,
-          location: undefined,
-        };
-        
-        finalSteps = [...finalSteps, refundStep];
+        // Ensure steps are sorted by stepOrder after adding refund step
+        finalSteps.sort((a, b) => a.stepOrder - b.stepOrder);
       }
-    } else if (refundEvent && !hasRefundStep) {
-      // If refund event exists but wasn't added, add it now
-      finalCurrentStage = 'Refund customer';
-      const refundStep = {
-        stepName: refundEvent.event_stage,
-        stepDescription: refundEvent.description || 'Refund has been processed.',
-        expectedCompletionTime: refundEvent.event_time,
-        actualCompletionTime: refundEvent.event_time,
-        stepOrder: finalSteps.length + 1,
-        location: refundEvent.location || undefined,
-      };
-      finalSteps = [...finalSteps, refundStep];
     }
 
     // Check if shipment is completed - check both events and generated steps
