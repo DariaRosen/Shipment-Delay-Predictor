@@ -28,38 +28,41 @@ async function createApp(): Promise<any> {
   try {
     const server = express();
     
-    // Patch Express to prevent app.router deprecation error
+    // Suppress Express 4.x app.router deprecation errors
     // NestJS ExpressAdapter accesses app.router which is deprecated in Express 4.x
-    // Check if router property exists and is configurable
-    const existingDescriptor = Object.getOwnPropertyDescriptor(server, 'router');
-    const router = express.Router();
-    
-    if (existingDescriptor && existingDescriptor.configurable) {
-      // Property exists and is configurable, we can redefine it
-      Object.defineProperty(server, 'router', {
-        get() {
-          return router;
-        },
-        configurable: true,
-        enumerable: false,
+    // We'll catch and handle any errors related to this
+    let app;
+    try {
+      app = await NestFactory.create(AppModule, new ExpressAdapter(server), {
+        cors: false,
       });
-    } else if (!existingDescriptor) {
-      // Property doesn't exist, we can define it
-      Object.defineProperty(server, 'router', {
-        get() {
-          return router;
-        },
-        configurable: true,
-        enumerable: false,
-      });
-    } else {
-      // Property exists but is not configurable, just assign the router directly
-      (server as any).router = router;
+    } catch (nestError: any) {
+      const errorMessage = nestError?.message || String(nestError);
+      
+      // If error is about router property, it's just a deprecation warning
+      // The app might still work, so let's try to continue
+      if (errorMessage.includes("'app.router' is deprecated") || 
+          errorMessage.includes('Cannot set property router') ||
+          errorMessage.includes('which has only a getter')) {
+        console.warn('Router deprecation warning caught, but continuing initialization...');
+        
+        // Try creating app again - sometimes it works on second try
+        // or the error was just a warning that doesn't prevent initialization
+        try {
+          app = await NestFactory.create(AppModule, new ExpressAdapter(server), {
+            cors: false,
+          });
+        } catch (retryError: any) {
+          // If it still fails, log but don't throw - let's see if we can use the server anyway
+          console.error('NestJS initialization failed after retry:', retryError);
+          // We'll throw the original error
+          throw nestError;
+        }
+      } else {
+        // Not a router error, throw it
+        throw nestError;
+      }
     }
-    
-    const app = await NestFactory.create(AppModule, new ExpressAdapter(server), {
-      cors: false,
-    });
 
   // Configure CORS to allow Vercel frontend URLs and localhost
   // For production, allow all Vercel domains; for development, be more restrictive
