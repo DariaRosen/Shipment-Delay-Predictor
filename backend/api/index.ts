@@ -13,13 +13,20 @@ async function createApp(): Promise<express.Express> {
     return cachedApp;
   }
 
-  // Load environment variables
+  // Load environment variables (Vercel provides these automatically, but dotenv helps for local dev)
   dotenv.config();
 
-  const server = express();
-  const app = await NestFactory.create(AppModule, new ExpressAdapter(server), {
-    cors: false,
-  });
+  // Log environment check (without exposing secrets)
+  console.log('Environment check:');
+  console.log('- SUPABASE_URL:', process.env.SUPABASE_URL ? 'Set' : 'Missing');
+  console.log('- SUPABASE_SERVICE_ROLE_KEY:', process.env.SUPABASE_SERVICE_ROLE_KEY ? 'Set' : 'Missing');
+  console.log('- NODE_ENV:', process.env.NODE_ENV);
+
+  try {
+    const server = express();
+    const app = await NestFactory.create(AppModule, new ExpressAdapter(server), {
+      cors: false,
+    });
 
   // Configure CORS to allow Vercel frontend URLs and localhost
   // For production, allow all Vercel domains; for development, be more restrictive
@@ -58,16 +65,52 @@ async function createApp(): Promise<express.Express> {
     }),
   );
 
-  await app.init();
-  cachedApp = server;
-  return server;
+    await app.init();
+    cachedApp = server;
+    console.log('NestJS app initialized successfully');
+    return server;
+  } catch (error) {
+    console.error('Failed to create NestJS app:', error);
+    console.error('Error details:', {
+      message: error instanceof Error ? error.message : 'Unknown error',
+      stack: error instanceof Error ? error.stack : undefined,
+    });
+    throw error;
+  }
 }
 
 export default async function handler(
   req: express.Request,
   res: express.Response,
 ): Promise<void> {
-  const app = await createApp();
-  app(req, res);
+  try {
+    const app = await createApp();
+    
+    // Handle the request
+    return new Promise((resolve, reject) => {
+      app(req, res, (err?: any) => {
+        if (err) {
+          console.error('Request handling error:', err);
+          reject(err);
+        } else {
+          resolve();
+        }
+      });
+    });
+  } catch (error) {
+    console.error('Serverless function error:', error);
+    console.error('Error stack:', error instanceof Error ? error.stack : 'No stack trace');
+    
+    // Send error response
+    if (!res.headersSent) {
+      res.status(500).json({
+        error: 'Internal Server Error',
+        message: error instanceof Error ? error.message : 'Unknown error',
+        ...(process.env.NODE_ENV === 'development' && {
+          stack: error instanceof Error ? error.stack : undefined,
+        }),
+      });
+    }
+  }
 }
 
