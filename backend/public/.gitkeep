@@ -1,0 +1,2 @@
+# This directory exists to satisfy Vercel's requirement for an output directory
+# The actual serverless function is in api/index.ts
