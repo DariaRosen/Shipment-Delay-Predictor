@@ -1,5 +1,7 @@
 # LogiDog Frontend - Shipment Delay Predictor
 
+> Migrated to Next.js API routes - no backend required!
+
 Frontend application for the LogiDog Shipment Delay Predictor system, built with Next.js 15, TypeScript, and Tailwind CSS.
 
 ## Features
