@@ -76,6 +76,7 @@ export async function GET(request: NextRequest) {
     // Calculate alerts
     const delayCalculator = new DelayCalculatorService();
     const alerts: AlertShipment[] = [];
+    const severityCounts = { Critical: 0, High: 0, Medium: 0, Low: 0, Minimal: 0 };
 
     for (const shipment of shipments) {
       const s = shipment as any;
@@ -104,6 +105,9 @@ export async function GET(request: NextRequest) {
 
       const calculatedAlert = delayCalculator.calculateAlert(shipmentData);
 
+      // Count all calculated severities (before filtering)
+      severityCounts[calculatedAlert.severity]++;
+
       // Only include shipments that are in_progress (not completed, canceled, or future)
       // Only in-progress shipments can be at risk
       if (calculatedAlert.status !== 'in_progress') {
@@ -127,6 +131,16 @@ export async function GET(request: NextRequest) {
         acknowledgedAt: s.acknowledged_at || undefined,
       });
     }
+
+    // Log severity distribution for debugging
+    console.log('Severity distribution (calculated):', severityCounts);
+    console.log('Severity distribution (included in alerts):', {
+      Critical: alerts.filter(a => a.severity === 'Critical').length,
+      High: alerts.filter(a => a.severity === 'High').length,
+      Medium: alerts.filter(a => a.severity === 'Medium').length,
+      Low: alerts.filter(a => a.severity === 'Low').length,
+      Minimal: alerts.filter(a => a.severity === 'Minimal').length,
+    });
 
     const response: AlertsResponse = {
       data: alerts,
