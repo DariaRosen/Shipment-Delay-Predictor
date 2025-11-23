@@ -41,6 +41,8 @@ export function ShipmentDetailPage({ shipmentId }: ShipmentDetailPageProps) {
   const { data, isLoading, error } = useQuery<AlertShipment>({
     queryKey: ['shipment', shipmentId],
     queryFn: () => apiClient.getShipment(shipmentId),
+    staleTime: 0, // Always fetch fresh data
+    cacheTime: 0, // Don't cache to ensure consistency
   })
 
   if (isLoading) {
