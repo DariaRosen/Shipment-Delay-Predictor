@@ -5,12 +5,24 @@ import type { AlertShipment } from '@/types/alerts';
  * Shared calculation function used by both /api/alerts and /api/alerts/[shipmentId]
  * This ensures both endpoints return identical data for the same shipment.
  * Any changes to calculation logic should be made in one place only.
+ * 
+ * IMPORTANT: Events should be passed in raw format from Supabase.
+ * This function normalizes them to ensure consistency.
  */
 export function calculateShipmentAlert(
   shipment: any,
   events: any[],
 ): AlertShipment {
   const delayCalculator = new DelayCalculatorService();
+  
+  // Normalize events to ensure consistent format - handle both raw Supabase format
+  // and pre-mapped format
+  const normalizedEvents = (events || []).map((e: any) => ({
+    event_time: e.event_time,
+    event_stage: e.event_stage,
+    description: e.description || undefined,
+    location: e.location || undefined,
+  }));
   
   const shipmentData: ShipmentData = {
     shipment_id: shipment.shipment_id,
@@ -20,17 +32,12 @@ export function calculateShipmentAlert(
     carrier: shipment.carrier,
     mode: shipment.mode,
     origin_city: shipment.origin_city,
-    origin_country: shipment.origin_country,
+    origin_country: shipment.origin_country || undefined,
     dest_city: shipment.dest_city,
-    dest_country: shipment.dest_country,
+    dest_country: shipment.dest_country || undefined,
     service_level: shipment.service_level,
     owner: shipment.owner,
-    events: events.map((e) => ({
-      event_time: e.event_time,
-      event_stage: e.event_stage,
-      description: e.description || undefined,
-      location: e.location || undefined,
-    })),
+    events: normalizedEvents,
   };
 
   const calculatedAlert = delayCalculator.calculateAlert(shipmentData);

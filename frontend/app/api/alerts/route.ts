@@ -84,6 +84,16 @@ export async function GET(request: NextRequest) {
 
       // Use shared calculation function - same as detail page endpoint
       const calculatedAlert = calculateShipmentAlert(s, events);
+      
+      // Debug logging to verify calculation matches detail route
+      if (process.env.NODE_ENV === 'development' && s.shipment_id === 'LD0091') {
+        console.log(`[${s.shipment_id}] Calculated alert in alerts route:`, {
+          riskScore: calculatedAlert.riskScore,
+          riskReasons: calculatedAlert.riskReasons,
+          riskFactorPointsCount: calculatedAlert.riskFactorPoints?.length || 0,
+          riskFactorPoints: calculatedAlert.riskFactorPoints?.map(rfp => `${rfp.factor}:+${rfp.points}`).join(', ') || 'none',
+        });
+      }
 
       // Count all calculated severities (before filtering)
       severityCounts[calculatedAlert.severity]++;
