@@ -1,37 +1,51 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSupabaseClient } from '@/lib/supabase';
 import { DelayCalculatorService, ShipmentData } from '@/lib/services/delay-calculator';
-import type { AlertsResponse, AlertsFilters, AlertShipment } from '@/types/alerts';
+import type { AlertsResponse, AlertShipment } from '@/types/alerts';
+
+type ShipmentStatus = 'all' | 'completed' | 'in_progress' | 'canceled' | 'future';
 
 export async function GET(request: NextRequest) {
   try {
     const searchParams = request.nextUrl.searchParams;
-    const filters: AlertsFilters = {
-      severity: searchParams.get('severity') as any,
-      mode: searchParams.get('mode') as any,
-      carrier: searchParams.get('carrier') || undefined,
-      search: searchParams.get('search') || undefined,
-    };
+    const year = searchParams.get('year') ? parseInt(searchParams.get('year')!) : undefined;
+    const month = searchParams.get('month') ? parseInt(searchParams.get('month')!) : undefined;
+    const status = (searchParams.get('status') as ShipmentStatus) || undefined;
+    const search = searchParams.get('search') || undefined;
 
     const supabase = getSupabaseClient();
     let query = supabase.from('shipments').select('*');
 
-    // Apply filters
-    if (filters.mode) {
-      query = query.eq('mode', filters.mode);
+    // Apply year filter
+    if (year) {
+      const startDate = `${year}-01-01T00:00:00Z`;
+      const endDate = `${year}-12-31T23:59:59Z`;
+      query = query
+        .gte('order_date', startDate)
+        .lte('order_date', endDate);
     }
-    if (filters.carrier) {
-      query = query.ilike('carrier', `%${filters.carrier}%`);
+
+    // Apply month filter (requires year)
+    if (month && year) {
+      const monthStr = String(month).padStart(2, '0');
+      const startDate = `${year}-${monthStr}-01T00:00:00Z`;
+      const daysInMonth = new Date(year, month, 0).getDate();
+      const endDate = `${year}-${monthStr}-${daysInMonth}T23:59:59Z`;
+      query = query
+        .gte('order_date', startDate)
+        .lte('order_date', endDate);
     }
-    if (filters.search) {
-      const term = filters.search.toLowerCase();
+
+    // Apply search filter
+    if (search) {
+      const term = search.toLowerCase();
       query = query.or(
         `shipment_id.ilike.%${term}%,origin_city.ilike.%${term}%,dest_city.ilike.%${term}%`,
       );
     }
 
-    const { data: shipments, error } = await query.order('expected_delivery', {
-      ascending: true,
+    const { data: shipments, error } = await query.order('order_date', {
+      ascending: false,
     });
 
     if (error) {
@@ -51,7 +65,7 @@ export async function GET(request: NextRequest) {
       });
     }
 
-    // Fetch events for all shipments
+    // Fetch all events for these shipments
     const shipmentIds = shipments.map((s: any) => s.shipment_id);
     const { data: allEvents } = await supabase
       .from('shipment_events')
@@ -59,7 +73,7 @@ export async function GET(request: NextRequest) {
       .in('shipment_id', shipmentIds)
       .order('event_time', { ascending: true });
 
-    // Group events by shipment
+    // Group events by shipment_id
     const eventsByShipment = new Map<string, any[]>();
     (allEvents || []).forEach((e: any) => {
       if (!eventsByShipment.has(e.shipment_id)) {
@@ -73,7 +87,7 @@ export async function GET(request: NextRequest) {
       });
     });
 
-    // Calculate alerts
+    // Calculate alerts for each shipment
     const delayCalculator = new DelayCalculatorService();
     const alerts: AlertShipment[] = [];
 
@@ -104,20 +118,23 @@ export async function GET(request: NextRequest) {
 
       const calculatedAlert = delayCalculator.calculateAlert(shipmentData);
 
-      // Only include shipments that are in_progress (not completed, canceled, or future)
-      // Only in-progress shipments can be at risk
-      if (calculatedAlert.status !== 'in_progress') {
-        continue;
-      }
-
-      // Only include shipments with risk factors (riskReasons or riskScore > 0)
-      if (calculatedAlert.riskReasons.length === 0 && calculatedAlert.riskScore === 0) {
-        continue;
-      }
-
-      // Apply severity filter after calculation
-      if (filters.severity && calculatedAlert.severity !== filters.severity) {
-        continue;
+      // Apply status filter (only if status is specified and not 'all')
+      if (status && status !== 'all') {
+        const alertStatus = calculatedAlert.status;
+        
+        // Strictly match the filter status - if status doesn't match, skip this shipment
+        if (status === 'completed' && alertStatus !== 'completed') {
+          continue; // Skip non-completed shipments
+        }
+        if (status === 'in_progress' && alertStatus !== 'in_progress') {
+          continue; // Skip non-in-progress shipments
+        }
+        if (status === 'canceled' && alertStatus !== 'canceled') {
+          continue; // Skip non-canceled shipments
+        }
+        if (status === 'future' && alertStatus !== 'future') {
+          continue; // Skip non-future shipments
+        }
       }
 
       alerts.push({
@@ -138,7 +155,7 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json(response);
   } catch (error) {
-    console.error('Error in GET /api/alerts:', error);
+    console.error('Error in GET /api/alerts/shipments/all:', error);
     return NextResponse.json(
       { error: 'Internal server error', message: error instanceof Error ? error.message : 'Unknown error' },
       { status: 500 },
