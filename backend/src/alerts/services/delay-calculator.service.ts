@@ -725,8 +725,9 @@ export class DelayCalculatorService {
         // Use refund event if it exists, otherwise create one
         if (refundEvent) {
           // Add refund step from actual event - ensure it's after the last step
-          const lastStepTime = finalSteps.length > 0 && finalSteps[finalSteps.length - 1].actualCompletionTime
-            ? new Date(finalSteps[finalSteps.length - 1].actualCompletionTime).getTime()
+          const lastStep = finalSteps.length > 0 ? finalSteps[finalSteps.length - 1] : null;
+          const lastStepTime = lastStep && lastStep.actualCompletionTime
+            ? new Date(lastStep.actualCompletionTime).getTime()
             : new Date().getTime();
           
           const refundEventTime = new Date(refundEvent.event_time).getTime();
@@ -753,8 +754,9 @@ export class DelayCalculatorService {
           const cancellationReason = `Shipment was stuck in the same step for more than 30 days (${Math.floor(dwellTime)} days) and is ${Math.floor(daysPastEta)} days past the expected delivery date (14+ days delay).`;
           
           // Ensure refund happens after the last step
-          const lastStepTime = finalSteps.length > 0 && finalSteps[finalSteps.length - 1].actualCompletionTime
-            ? new Date(finalSteps[finalSteps.length - 1].actualCompletionTime).getTime()
+          const lastStep = finalSteps.length > 0 ? finalSteps[finalSteps.length - 1] : null;
+          const lastStepTime = lastStep && lastStep.actualCompletionTime
+            ? new Date(lastStep.actualCompletionTime).getTime()
             : new Date().getTime();
           const refundTime = lastStepTime + (60 * 60 * 1000); // 1 hour after last step
           
