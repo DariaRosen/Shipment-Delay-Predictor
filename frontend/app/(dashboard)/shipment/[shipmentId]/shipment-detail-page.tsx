@@ -116,7 +116,6 @@ export function ShipmentDetailPage({ shipmentId }: ShipmentDetailPageProps) {
               <p className="text-teal-700 mt-1 font-mono">{data.shipmentId}</p>
             </div>
           </div>
-          <Badge className={severityColors[data.severity]}>{data.riskScore}</Badge>
         </div>
 
         {/* Shipment Info Cards */}
