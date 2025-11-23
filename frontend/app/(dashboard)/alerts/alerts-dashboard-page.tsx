@@ -27,14 +27,26 @@ export function AlertsDashboardPage() {
   }
 
   if (error) {
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred'
+    console.error('Alerts fetch error:', error)
+    
     return (
       <div className="min-h-screen bg-gradient-to-br from-teal-50 via-[#E6FFFA] to-teal-100 p-6">
         <Card className="border-destructive bg-white/95">
           <CardHeader>
             <CardTitle className="text-destructive">Error Loading Alerts</CardTitle>
           </CardHeader>
-          <CardContent>
-            <p>Failed to load alerts. Please try again later.</p>
+          <CardContent className="space-y-4">
+            <p className="text-destructive">Failed to load alerts. Please try again later.</p>
+            <div className="text-sm text-muted-foreground">
+              <p><strong>Error:</strong> {errorMessage}</p>
+              <p className="mt-2">
+                <strong>API URL:</strong> {process.env.NEXT_PUBLIC_API_URL || 'Not set'}
+              </p>
+              <p className="mt-2 text-xs">
+                Check the browser console for more details.
+              </p>
+            </div>
           </CardContent>
         </Card>
       </div>

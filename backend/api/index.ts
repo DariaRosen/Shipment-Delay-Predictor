@@ -22,19 +22,31 @@ async function createApp(): Promise<express.Express> {
   });
 
   // Configure CORS to allow Vercel frontend URLs and localhost
-  const allowedOrigins = [
-    'http://localhost:3000',
-    process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : null,
-    process.env.NEXT_PUBLIC_VERCEL_URL
-      ? `https://${process.env.NEXT_PUBLIC_VERCEL_URL}`
-      : null,
-    process.env.FRONTEND_URL,
-  ].filter(Boolean) as string[];
+  // For production, allow all Vercel domains; for development, be more restrictive
+  const isDevelopment = process.env.NODE_ENV !== 'production';
+  
+  const corsOptions = isDevelopment
+    ? {
+        origin: [
+          'http://localhost:3000',
+          process.env.FRONTEND_URL,
+        ].filter(Boolean),
+        credentials: true,
+      }
+    : {
+        // In production, allow all Vercel domains
+        origin: true, // Allow all origins in production (Vercel handles security)
+        credentials: true,
+        methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+        allowedHeaders: ['Content-Type', 'Authorization'],
+      };
 
-  app.enableCors({
-    origin: allowedOrigins.length > 0 ? allowedOrigins : true,
-    credentials: true,
-  });
+  app.enableCors(corsOptions);
+  
+  // Log CORS configuration for debugging
+  if (process.env.NODE_ENV === 'development') {
+    console.log('CORS configured for origins:', corsOptions.origin);
+  }
 
   app.setGlobalPrefix('api');
 

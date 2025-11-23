@@ -1,6 +1,24 @@
 import { AlertShipment, AlertsResponse, AlertsFilters } from '@/types/alerts'
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api'
+// Ensure API URL doesn't have trailing slash and includes /api if needed
+const getApiBaseUrl = () => {
+  const url = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api'
+  // Remove trailing slash
+  const cleanUrl = url.replace(/\/$/, '')
+  // If URL doesn't end with /api, add it (unless it's localhost:3001 which already has it)
+  if (!cleanUrl.endsWith('/api') && !cleanUrl.includes('localhost:3001')) {
+    return `${cleanUrl}/api`
+  }
+  return cleanUrl
+}
+
+const API_BASE_URL = getApiBaseUrl()
+
+// Log API URL in development
+if (typeof window !== 'undefined' && process.env.NODE_ENV === 'development') {
+  console.log('API Base URL:', API_BASE_URL)
+  console.log('NEXT_PUBLIC_API_URL env:', process.env.NEXT_PUBLIC_API_URL)
+}
 
 export const apiClient = {
   async getAlerts(filters?: AlertsFilters): Promise<AlertsResponse> {
@@ -10,9 +28,14 @@ export const apiClient = {
     if (filters?.carrier) params.append('carrier', filters.carrier)
     if (filters?.search) params.append('search', filters.search)
 
-    const response = await fetch(`${API_BASE_URL}/alerts?${params.toString()}`)
+    const url = `${API_BASE_URL}/alerts?${params.toString()}`
+    console.log('Fetching alerts from:', url)
+    
+    const response = await fetch(url)
     if (!response.ok) {
-      throw new Error('Failed to fetch alerts')
+      const errorText = await response.text()
+      console.error('Failed to fetch alerts:', response.status, errorText)
+      throw new Error(`Failed to fetch alerts: ${response.status} ${errorText}`)
     }
     return response.json()
   },
