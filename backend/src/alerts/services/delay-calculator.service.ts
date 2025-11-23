@@ -292,10 +292,15 @@ export class DelayCalculatorService {
     // Only add these if there are already other risk factors (actual problems)
     // Distance and international status are potential risks, not actual delays
     
+    // Use the same stageDwellTime calculation for consistency
+    const actualStageDwellTimeForCheck = latestEvent 
+      ? this.calculateStageDwellTime(shipment.events, latestEvent.event_stage)
+      : 0;
+    
     const hasActualRiskFactors = riskReasons.length > 0 || 
                                  daysToEta < 3 || 
                                  daysSinceLastEvent > 1 ||
-                                 stageDwellTime > 2;
+                                 actualStageDwellTimeForCheck > 2;
     
     if (hasActualRiskFactors) {
       // 2.1 Distance-Based Risk (only if there are actual problems)
@@ -406,16 +411,30 @@ export class DelayCalculatorService {
     riskScore += riskReasons.length * 10;
     
     // 8. SAFEGUARD: If shipment is clearly healthy, cap the score
-    // Healthy = plenty of time (>=7 days), recent update (<=1 day), no risk reasons
+    // Healthy = plenty of time (>=7 days), reasonably recent update (<=3 days), no actual risk reasons, not stuck
+    // Recalculate stageDwellTime using latest event to ensure accuracy
+    const actualStageDwellTime = latestEvent 
+      ? this.calculateStageDwellTime(shipment.events, latestEvent.event_stage)
+      : 0;
+    
+    // More lenient safeguard: if shipment has plenty of time and update is reasonably recent,
+    // and no actual risk reasons (like customs hold, port congestion, etc.), consider it healthy
+    const hasActualRiskReasons = riskReasons.some(reason => 
+      reason !== 'StaleStatus' // StaleStatus alone (without other issues) shouldn't prevent healthy status
+    );
+    
     const isHealthy = daysToEta >= 7 && 
-                      daysSinceLastEvent <= 1 && 
-                      riskReasons.length === 0 &&
-                      stageDwellTime <= 2;
+                      daysSinceLastEvent <= 3 && // More lenient: 3 days instead of 1
+                      !hasActualRiskReasons && // No actual operational issues
+                      actualStageDwellTime <= 3; // More lenient: 3 days instead of 2
     
     if (isHealthy) {
       // Even if distance/international/seasonal factors added points,
       // cap healthy shipments at a low score
-      riskScore = Math.min(riskScore, 15); // Max 15 for healthy shipments
+      // If only stale status (no other issues), cap at 15; if no stale status, even lower
+      const hasOnlyStaleStatus = riskReasons.length === 1 && riskReasons[0] === 'StaleStatus';
+      const maxScore = hasOnlyStaleStatus ? 25 : 15; // Allow slightly higher if only stale status
+      riskScore = Math.min(riskScore, maxScore);
     }
     
     // Cap at 100
