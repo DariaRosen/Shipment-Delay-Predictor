@@ -30,15 +30,32 @@ async function createApp(): Promise<any> {
     
     // Patch Express to prevent app.router deprecation error
     // NestJS ExpressAdapter accesses app.router which is deprecated in Express 4.x
-    // We create a router and attach it to prevent the error
+    // Check if router property exists and is configurable
+    const existingDescriptor = Object.getOwnPropertyDescriptor(server, 'router');
     const router = express.Router();
-    Object.defineProperty(server, 'router', {
-      get() {
-        return router;
-      },
-      configurable: true,
-      enumerable: false,
-    });
+    
+    if (existingDescriptor && existingDescriptor.configurable) {
+      // Property exists and is configurable, we can redefine it
+      Object.defineProperty(server, 'router', {
+        get() {
+          return router;
+        },
+        configurable: true,
+        enumerable: false,
+      });
+    } else if (!existingDescriptor) {
+      // Property doesn't exist, we can define it
+      Object.defineProperty(server, 'router', {
+        get() {
+          return router;
+        },
+        configurable: true,
+        enumerable: false,
+      });
+    } else {
+      // Property exists but is not configurable, just assign the router directly
+      (server as any).router = router;
+    }
     
     const app = await NestFactory.create(AppModule, new ExpressAdapter(server), {
       cors: false,
