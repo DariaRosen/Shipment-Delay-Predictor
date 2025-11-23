@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { RiskReason } from '../types/alert-shipment.interface';
+import { RiskReason, ShipmentStep } from '../types/alert-shipment.interface';
 import { generateShipmentSteps } from '../data/shipment-steps-generator';
 import { calculateCityDistance } from '../utils/distance-calculator';
 
@@ -458,6 +458,7 @@ export class DelayCalculatorService {
     let lastActualTime = orderDateForSteps.getTime();
     let lastCompletedStepIndex = -1; // Track the index of the last completed step
     let lastExpectedTime = orderDateForSteps.getTime(); // Track expected time for future steps
+    const calculatedSteps: ShipmentStep[] = []; // Store calculated steps to reference previous step's expected time
     
     const steps = allExpectedSteps.map((expectedStep, index) => {
       // First step (order created) always uses order date as actual time
@@ -513,7 +514,8 @@ export class DelayCalculatorService {
         // Update lastActualTime to ensure next step is after this one
         lastActualTime = eventTime;
         lastCompletedStepIndex = index; // Track this as the last completed step
-        lastExpectedTime = eventTime; // Update expected time base to actual completion time
+        // Update expected time base to actual completion time for future steps
+        lastExpectedTime = eventTime;
         
         // Also adjust expected time if it's before the actual time
         let adjustedExpectedTime = expectedStep.expectedCompletionTime;
@@ -525,7 +527,7 @@ export class DelayCalculatorService {
           }
         }
         
-        return {
+        const calculatedStep: ShipmentStep = {
           stepName: expectedStep.stepName,
           stepDescription: expectedStep.stepDescription || latestMatchingEvent.description,
           expectedCompletionTime: adjustedExpectedTime,
@@ -533,6 +535,9 @@ export class DelayCalculatorService {
           stepOrder: expectedStep.stepOrder, // Preserve original step order
           location: latestMatchingEvent.location || expectedStep.location,
         };
+        
+        calculatedSteps.push(calculatedStep);
+        return calculatedStep;
       }
       
       // No matching event - use expected step as-is (for future steps)
@@ -546,7 +551,7 @@ export class DelayCalculatorService {
       // based on the last completed step, not the original ETA
       if (lastCompletedStepIndex >= 0 && index > lastCompletedStepIndex) {
         // Calculate expected time based on step duration from the previous step's expected time
-        const stepDurationHours = this.getStepDuration(expectedStep.stepName, shipment.mode);
+        let stepDurationHours = this.getStepDuration(expectedStep.stepName, shipment.mode);
         
         // Special handling: if last completed step was "Arrived at customs", 
         // the next step should happen shortly after (within hours, not days)
@@ -554,36 +559,43 @@ export class DelayCalculatorService {
         const lastStepNameLower = lastCompletedStep.stepName.toLowerCase();
         const currentStepNameLower = expectedStep.stepName.toLowerCase();
         
-        if (lastStepNameLower.includes('arrived at customs')) {
-          // After arriving at customs, the next step should happen within hours
-          // Override the step duration to be more realistic (1-4 hours instead of 24 hours)
-          let adjustedDurationHours = stepDurationHours;
-          
+        // Check if this is the first step after "Arrived at customs"
+        if (lastStepNameLower.includes('arrived at customs') && index === lastCompletedStepIndex + 1) {
           // "Your package will soon be handed over to the domestic courier company" 
           // should happen within hours, not 24 hours
           if (currentStepNameLower.includes('your package will soon be handed over') ||
               currentStepNameLower.includes('import customs clearance started')) {
-            adjustedDurationHours = 1; // 1 hour after arrival
+            stepDurationHours = 1; // 1 hour after arrival
           }
-          
-          const adjustedExpectedTime = lastActualTime + (adjustedDurationHours * 60 * 60 * 1000);
-          lastExpectedTime = adjustedExpectedTime;
-          
-          return {
-            ...expectedStep,
-            expectedCompletionTime: new Date(adjustedExpectedTime).toISOString(),
-            actualCompletionTime: expectedStep.actualCompletionTime, // Keep if exists
-          };
         }
         
-        const adjustedExpectedTime = lastExpectedTime + (stepDurationHours * 60 * 60 * 1000);
+        // For all future steps, calculate from the previous step's expected time
+        // Get the previous step's expected time from the calculated steps array
+        let previousExpectedTime = lastExpectedTime;
+        
+        // If we've already calculated a previous step, use its expected time
+        if (calculatedSteps.length > 0) {
+          const previousCalculatedStep = calculatedSteps[calculatedSteps.length - 1];
+          if (previousCalculatedStep.expectedCompletionTime) {
+            previousExpectedTime = new Date(previousCalculatedStep.expectedCompletionTime).getTime();
+          }
+        } else if (index > 0 && lastCompletedStepIndex >= 0) {
+          // If no calculated steps yet, use the last completed step's actual time as base
+          previousExpectedTime = lastActualTime;
+        }
+        
+        // Calculate expected time based on the previous step's expected time
+        const adjustedExpectedTime = previousExpectedTime + (stepDurationHours * 60 * 60 * 1000);
         lastExpectedTime = adjustedExpectedTime; // Update for next step
         
-        return {
+        const calculatedStep: ShipmentStep = {
           ...expectedStep,
           expectedCompletionTime: new Date(adjustedExpectedTime).toISOString(),
           actualCompletionTime: expectedStep.actualCompletionTime, // Keep if exists
         };
+        
+        calculatedSteps.push(calculatedStep);
+        return calculatedStep;
       }
       
       // If expected time is before or equal to the last actual time, adjust it
@@ -681,28 +693,67 @@ export class DelayCalculatorService {
     let finalCurrentStage = latestEvent?.event_stage || shipment.current_status;
     let finalSteps = steps.length > 0 ? steps : allExpectedSteps;
 
-    // If canceled, update current stage and add refund step
-    if (isCanceled && !finalCurrentStage.toLowerCase().includes('refund')) {
+    // Check if there's a refund event in the actual events (from database)
+    const refundEvent = shipment.events.find(e => 
+      e.event_stage.toLowerCase().includes('refund') || 
+      e.event_stage.toLowerCase().includes('refound')
+    );
+
+    // Check if refund step already exists in the timeline
+    const hasRefundStep = finalSteps.some(s => 
+      s.stepName.toLowerCase().includes('refund') || 
+      s.stepName.toLowerCase().includes('refound')
+    );
+
+    // If canceled or has refund event, update current stage and add refund step
+    if ((isCanceled || refundEvent) && !hasRefundStep) {
       finalCurrentStage = 'Refund customer';
       
-      // Both conditions must be met for cancellation
-      const dwellTime = this.calculateStageDwellTime(shipment.events, shipment.current_status);
-      const now = new Date();
-      const expectedDelivery = new Date(shipment.expected_delivery);
-      const daysPastEta = (now.getTime() - expectedDelivery.getTime()) / (1000 * 60 * 60 * 24);
-      
-      const cancellationReason = `Shipment was stuck in the same step for more than 30 days (${Math.floor(dwellTime)} days) and is ${Math.floor(daysPastEta)} days past the expected delivery date (14+ days delay).`;
-      
-      // Add refund step as the last step
+      // Use refund event if it exists, otherwise create one
+      if (refundEvent) {
+        // Add refund step from actual event
+        const refundStep = {
+          stepName: refundEvent.event_stage,
+          stepDescription: refundEvent.description || 'Refund has been processed.',
+          expectedCompletionTime: refundEvent.event_time,
+          actualCompletionTime: refundEvent.event_time,
+          stepOrder: finalSteps.length + 1,
+          location: refundEvent.location || undefined,
+        };
+        
+        finalSteps = [...finalSteps, refundStep];
+      } else {
+        // Both conditions must be met for cancellation
+        const dwellTime = this.calculateStageDwellTime(shipment.events, shipment.current_status);
+        const now = new Date();
+        const expectedDelivery = new Date(shipment.expected_delivery);
+        const daysPastEta = (now.getTime() - expectedDelivery.getTime()) / (1000 * 60 * 60 * 24);
+        
+        const cancellationReason = `Shipment was stuck in the same step for more than 30 days (${Math.floor(dwellTime)} days) and is ${Math.floor(daysPastEta)} days past the expected delivery date (14+ days delay).`;
+        
+        // Add refund step as the last step
+        const refundStep = {
+          stepName: 'Refund customer',
+          stepDescription: `${cancellationReason} Refund has been processed.`,
+          expectedCompletionTime: new Date().toISOString(),
+          actualCompletionTime: new Date().toISOString(),
+          stepOrder: finalSteps.length + 1,
+          location: undefined,
+        };
+        
+        finalSteps = [...finalSteps, refundStep];
+      }
+    } else if (refundEvent && !hasRefundStep) {
+      // If refund event exists but wasn't added, add it now
+      finalCurrentStage = 'Refund customer';
       const refundStep = {
-        stepName: 'Refund customer',
-        stepDescription: `${cancellationReason} Refund has been processed.`,
-        expectedCompletionTime: new Date().toISOString(),
-        actualCompletionTime: new Date().toISOString(),
+        stepName: refundEvent.event_stage,
+        stepDescription: refundEvent.description || 'Refund has been processed.',
+        expectedCompletionTime: refundEvent.event_time,
+        actualCompletionTime: refundEvent.event_time,
         stepOrder: finalSteps.length + 1,
-        location: undefined,
+        location: refundEvent.location || undefined,
       };
-      
       finalSteps = [...finalSteps, refundStep];
     }
 
