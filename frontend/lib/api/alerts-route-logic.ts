@@ -42,47 +42,64 @@ export async function fetchAndCalculateAlerts(filters?: AlertsFilters & { shipme
     return [];
   }
 
+  // Always fetch events for all shipments (needed for timeline/steps generation)
+  const shipmentIds = shipments.map((s: any) => s.shipment_id);
+  const { data: allEvents } = await supabase
+    .from('shipment_events')
+    .select('*')
+    .in('shipment_id', shipmentIds)
+    .order('event_time', { ascending: true });
+
+  // Group events by shipment
+  const eventsByShipment = new Map<string, any[]>();
+  (allEvents || []).forEach((e: any) => {
+    if (!eventsByShipment.has(e.shipment_id)) {
+      eventsByShipment.set(e.shipment_id, []);
+    }
+    eventsByShipment.get(e.shipment_id)!.push({
+      event_time: e.event_time,
+      event_stage: e.event_stage,
+      description: e.description,
+      location: e.location,
+    });
+  });
+
   // Convert shipments to AlertShipment format using stored calculated data
   const alerts: AlertShipment[] = [];
   const needsCalculation: any[] = [];
 
   for (const shipment of shipments) {
     const s = shipment as any;
+    const events = eventsByShipment.get(s.shipment_id) || [];
 
     // Check if we have stored calculated data that's recent (within last hour)
     const calculatedAt = s.calculated_at ? new Date(s.calculated_at) : null;
     const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000);
     const isStale = !calculatedAt || calculatedAt < oneHourAgo;
 
-    // If we have fresh calculated data, use it
+    // If we have fresh calculated data, use it but still generate steps from events
     if (
       !isStale &&
       s.calculated_risk_score !== null &&
       s.calculated_severity !== null &&
       s.calculated_risk_reasons !== null
     ) {
-      // Use stored calculated data - ensures consistency!
+      // Use stored calculated data for risk info, but generate steps dynamically
+      // Steps need to be generated from events to show actual completion times
+      const alertWithSteps = calculateShipmentAlert(s, events);
+      
+      // Override with stored calculated data (for consistency) but keep steps
       alerts.push({
-        shipmentId: s.shipment_id,
-        origin: s.origin_city,
-        destination: s.dest_city,
-        mode: s.mode,
-        carrierName: s.carrier,
-        serviceLevel: s.service_level,
-        currentStage: s.calculated_current_stage || s.current_status,
-        plannedEta: s.expected_delivery,
-        daysToEta: s.calculated_days_to_eta ?? 0,
-        lastMilestoneUpdate: s.last_update || s.order_date,
-        orderDate: s.order_date,
+        ...alertWithSteps, // This includes steps generated from events
+        // Override with stored calculated values (ensures consistency)
         riskScore: s.calculated_risk_score,
         severity: s.calculated_severity,
         riskReasons: s.calculated_risk_reasons || [],
         riskFactorPoints: s.calculated_risk_factor_points || [],
-        owner: s.owner,
-        acknowledged: s.acknowledged || false,
-        acknowledgedBy: s.acknowledged_by || undefined,
-        acknowledgedAt: s.acknowledged_at || undefined,
         status: s.calculated_status || 'in_progress',
+        currentStage: s.calculated_current_stage || s.current_status,
+        daysToEta: s.calculated_days_to_eta ?? 0,
+        // Keep steps from calculateShipmentAlert (generated from events)
       });
     } else {
       // Mark for calculation
@@ -92,34 +109,12 @@ export async function fetchAndCalculateAlerts(filters?: AlertsFilters & { shipme
 
   // Calculate missing/stale data and store it
   if (needsCalculation.length > 0) {
-    // Fetch events for shipments that need calculation
-    const shipmentIds = needsCalculation.map((s: any) => s.shipment_id);
-    const { data: allEvents } = await supabase
-      .from('shipment_events')
-      .select('*')
-      .in('shipment_id', shipmentIds)
-      .order('event_time', { ascending: true });
-
-    // Group events by shipment
-    const eventsByShipment = new Map<string, any[]>();
-    (allEvents || []).forEach((e: any) => {
-      if (!eventsByShipment.has(e.shipment_id)) {
-        eventsByShipment.set(e.shipment_id, []);
-      }
-      eventsByShipment.get(e.shipment_id)!.push({
-        event_time: e.event_time,
-        event_stage: e.event_stage,
-        description: e.description,
-        location: e.location,
-      });
-    });
-
     // Calculate and store for each shipment
     for (const shipment of needsCalculation) {
       const s = shipment as any;
       const events = eventsByShipment.get(s.shipment_id) || [];
 
-      // Calculate using shared function
+      // Calculate using shared function (includes steps generation)
       const calculatedAlert = calculateShipmentAlert(s, events);
 
       // Store in database for future reads (ensures both routes use same data)
