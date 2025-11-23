@@ -17,6 +17,7 @@ import { ArrowLeft, MapPin, Info } from 'lucide-react'
 import { format } from 'date-fns'
 import { ShipmentTimeline } from '@/components/shipment/shipment-timeline'
 import { getRiskFactorExplanation } from '@/lib/risk-factor-explanations'
+import { RiskReason, RiskFactorPoints } from '@/types/alerts'
 
 interface ShipmentDetailPageProps {
   shipmentId: string
@@ -168,45 +169,147 @@ export function ShipmentDetailPage({ shipmentId }: ShipmentDetailPageProps) {
         </div>
 
         {/* Risk Factors */}
-        {data.riskReasons.length > 0 && (
+        {((data.riskFactorPoints && data.riskFactorPoints.length > 0) || data.riskReasons.length > 0) && (
           <Card className="border-teal-200 bg-white/95">
             <CardHeader>
-              <CardTitle className="text-teal-900">Risk Factors</CardTitle>
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-teal-900">Risk Factors</CardTitle>
+                <Badge className={severityColors[data.severity]} variant="outline">
+                  Total Score: {data.riskScore}
+                </Badge>
+              </div>
             </CardHeader>
             <CardContent>
               <TooltipProvider>
                 <div className="space-y-3">
-                  {data.riskReasons.map((reason) => {
-                    const explanation = getRiskFactorExplanation(reason)
-                    return (
-                      <div
-                        key={reason}
-                        className="flex items-start gap-3 p-3 rounded-lg border border-teal-200 bg-teal-50/50"
-                      >
-                        <div className="text-2xl flex-shrink-0">{explanation.icon}</div>
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2 mb-1">
-                            <h4 className="font-semibold text-teal-900">{explanation.name}</h4>
-                            <Badge
-                              variant="outline"
-                              className={`text-xs ${
-                                explanation.severity === 'High'
-                                  ? 'border-red-200 text-red-800'
-                                  : explanation.severity === 'Medium'
-                                    ? 'border-orange-200 text-orange-800'
-                                    : 'border-yellow-200 text-yellow-800'
-                              }`}
-                            >
-                              {explanation.severity}
-                            </Badge>
+                  {data.riskFactorPoints && data.riskFactorPoints.length > 0 ? (
+                    // Show detailed breakdown with points
+                    data.riskFactorPoints
+                      .filter((rfp: RiskFactorPoints) => {
+                        // Skip Delayed if it has 0 points (delay already shown in base score)
+                        if (rfp.factor === 'Delayed' && rfp.points === 0) {
+                          return false;
+                        }
+                        return true;
+                      })
+                      .sort((a: RiskFactorPoints, b: RiskFactorPoints) => {
+                        // Sort: BaseScore first, then by points descending
+                        if (a.factor === 'BaseScore') return -1;
+                        if (b.factor === 'BaseScore') return 1;
+                        return b.points - a.points;
+                      })
+                      .map((rfp: RiskFactorPoints, index: number) => {
+                        // Get explanation for risk reason factors
+                        const explanation = rfp.factor !== 'BaseScore' && 
+                          rfp.factor !== 'LongDistance' && 
+                          rfp.factor !== 'International' &&
+                          rfp.factor !== 'PeakSeason' &&
+                          rfp.factor !== 'WeekendDelay' &&
+                          rfp.factor !== 'ExpressRisk'
+                          ? getRiskFactorExplanation(rfp.factor as RiskReason)
+                          : null;
+                        
+                        const factorName = explanation?.name || 
+                          (rfp.factor === 'BaseScore' ? 'Base Score (Delivery Delayed)' :
+                           rfp.factor === 'LongDistance' ? 'Long Distance' :
+                           rfp.factor === 'International' ? 'International Shipment' :
+                           rfp.factor === 'PeakSeason' ? 'Peak Season (Nov/Dec)' :
+                           rfp.factor === 'WeekendDelay' ? 'Weekend Processing Delay' :
+                           rfp.factor === 'ExpressRisk' ? 'Express Service Risk' :
+                           rfp.factor);
+                        
+                        const factorIcon = explanation?.icon || 
+                          (rfp.factor === 'BaseScore' ? '🎯' :
+                           rfp.factor === 'LongDistance' ? '📏' :
+                           rfp.factor === 'International' ? '🌍' :
+                           rfp.factor === 'PeakSeason' ? '🎄' :
+                           rfp.factor === 'WeekendDelay' ? '📅' :
+                           rfp.factor === 'ExpressRisk' ? '⚡' :
+                           '⚠️');
+                        
+                        const factorDescription = rfp.description || explanation?.description || '';
+                        const factorSeverity = explanation?.severity || 
+                          (rfp.points >= 8 ? 'High' : rfp.points >= 5 ? 'Medium' : 'Low');
+                        
+                        return (
+                          <div
+                            key={`${rfp.factor}-${index}`}
+                            className="flex items-start gap-3 p-3 rounded-lg border border-teal-200 bg-teal-50/50"
+                          >
+                            <div className="text-2xl flex-shrink-0">{factorIcon}</div>
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-2 mb-1">
+                                <h4 className="font-semibold text-teal-900">{factorName}</h4>
+                                <Badge
+                                  variant="outline"
+                                  className={`text-xs font-bold ${
+                                    factorSeverity === 'High'
+                                      ? 'border-red-200 text-red-800 bg-red-50'
+                                      : factorSeverity === 'Medium'
+                                        ? 'border-orange-200 text-orange-800 bg-orange-50'
+                                        : 'border-yellow-200 text-yellow-800 bg-yellow-50'
+                                  }`}
+                                >
+                                  +{rfp.points} points
+                                </Badge>
+                                {explanation && (
+                                  <Badge
+                                    variant="outline"
+                                    className={`text-xs ${
+                                      explanation.severity === 'High'
+                                        ? 'border-red-200 text-red-800'
+                                        : explanation.severity === 'Medium'
+                                          ? 'border-orange-200 text-orange-800'
+                                          : 'border-yellow-200 text-yellow-800'
+                                    }`}
+                                  >
+                                    {explanation.severity}
+                                  </Badge>
+                                )}
+                              </div>
+                              {factorDescription && (
+                                <p className="text-sm text-teal-700 leading-relaxed">
+                                  {factorDescription}
+                                </p>
+                              )}
+                            </div>
                           </div>
-                          <p className="text-sm text-teal-700 leading-relaxed">
-                            {explanation.description}
-                          </p>
+                        );
+                      })
+                  ) : (
+                    // Fallback: show risk reasons without points (for backwards compatibility)
+                    data.riskReasons.map((reason) => {
+                      const explanation = getRiskFactorExplanation(reason)
+                      return (
+                        <div
+                          key={reason}
+                          className="flex items-start gap-3 p-3 rounded-lg border border-teal-200 bg-teal-50/50"
+                        >
+                          <div className="text-2xl flex-shrink-0">{explanation.icon}</div>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2 mb-1">
+                              <h4 className="font-semibold text-teal-900">{explanation.name}</h4>
+                              <Badge
+                                variant="outline"
+                                className={`text-xs ${
+                                  explanation.severity === 'High'
+                                    ? 'border-red-200 text-red-800'
+                                    : explanation.severity === 'Medium'
+                                      ? 'border-orange-200 text-orange-800'
+                                      : 'border-yellow-200 text-yellow-800'
+                                }`}
+                              >
+                                {explanation.severity}
+                              </Badge>
+                            </div>
+                            <p className="text-sm text-teal-700 leading-relaxed">
+                              {explanation.description}
+                            </p>
+                          </div>
                         </div>
-                      </div>
-                    )
-                  })}
+                      )
+                    })
+                  )}
                 </div>
               </TooltipProvider>
             </CardContent>
