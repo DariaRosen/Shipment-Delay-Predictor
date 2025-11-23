@@ -3,12 +3,15 @@ import { ValidationPipe } from '@nestjs/common';
 import { ExpressAdapter } from '@nestjs/platform-express';
 import { AppModule } from '../src/app.module';
 import type { Request, Response } from 'express';
-import * as express from 'express';
 import * as dotenv from 'dotenv';
 
-let cachedApp: express.Express;
+// Use require for express to ensure compatibility in Vercel serverless environment
+// eslint-disable-next-line @typescript-eslint/no-var-requires
+const express = require('express');
 
-async function createApp(): Promise<express.Express> {
+let cachedApp: ReturnType<typeof express>;
+
+async function createApp(): Promise<any> {
   if (cachedApp) {
     return cachedApp;
   }
@@ -80,8 +83,8 @@ async function createApp(): Promise<express.Express> {
 }
 
 export default async function handler(
-  req: express.Request,
-  res: express.Response,
+  req: Request,
+  res: Response,
 ): Promise<void> {
   try {
     const app = await createApp();
