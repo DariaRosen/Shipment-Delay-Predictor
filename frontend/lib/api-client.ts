@@ -1,15 +1,20 @@
 import { AlertShipment, AlertsResponse, AlertsFilters } from '@/types/alerts'
 
-// Ensure API URL doesn't have trailing slash and includes /api if needed
+// Use relative paths for Next.js API routes (same project)
+// Fallback to external URL for development with separate backend
 const getApiBaseUrl = () => {
-  const url = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api'
-  // Remove trailing slash
-  const cleanUrl = url.replace(/\/$/, '')
-  // If URL doesn't end with /api, add it (unless it's localhost:3001 which already has it)
-  if (!cleanUrl.endsWith('/api') && !cleanUrl.includes('localhost:3001')) {
-    return `${cleanUrl}/api`
+  // If NEXT_PUBLIC_API_URL is set and points to external backend, use it
+  // Otherwise use relative path for Next.js API routes
+  if (process.env.NEXT_PUBLIC_API_URL && !process.env.NEXT_PUBLIC_API_URL.startsWith('/')) {
+    const url = process.env.NEXT_PUBLIC_API_URL
+    const cleanUrl = url.replace(/\/$/, '')
+    if (!cleanUrl.endsWith('/api') && !cleanUrl.includes('localhost:3001')) {
+      return `${cleanUrl}/api`
+    }
+    return cleanUrl
   }
-  return cleanUrl
+  // Use relative path for Next.js API routes
+  return '/api'
 }
 
 const API_BASE_URL = getApiBaseUrl()
