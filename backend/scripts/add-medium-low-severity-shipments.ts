@@ -66,7 +66,7 @@ function randomElement<T>(arr: T[]): T {
   return arr[Math.floor(Math.random() * arr.length)];
 }
 
-// Generate events for Medium severity shipments (2-3 days delayed, with some risk factors)
+// Generate events for Medium severity shipments (1 day delayed, short timeline ≤7 days)
 function generateMediumSeverityEvents(
   shipmentId: string,
   orderDate: Date,
@@ -82,11 +82,11 @@ function generateMediumSeverityEvents(
     event_time: currentTime.toISOString(),
     event_stage: 'Your order has been successfully created',
     description: null,
-    location: shipmentId.includes('Sea') ? 'Port' : 'Warehouse',
+    location: 'Warehouse',
   });
 
-  // Preparation steps
-  currentTime = addHours(currentTime, 4);
+  // Preparation steps (quick for short timeline)
+  currentTime = addHours(currentTime, 2);
   events.push({
     shipment_id: shipmentId,
     event_time: currentTime.toISOString(),
@@ -95,7 +95,7 @@ function generateMediumSeverityEvents(
     location: 'Warehouse',
   });
 
-  currentTime = addHours(currentTime, 2);
+  currentTime = addHours(currentTime, 1);
   events.push({
     shipment_id: shipmentId,
     event_time: currentTime.toISOString(),
@@ -105,7 +105,7 @@ function generateMediumSeverityEvents(
   });
 
   if (mode === 'Air') {
-    currentTime = addHours(currentTime, 6);
+    currentTime = addHours(currentTime, 4);
     events.push({
       shipment_id: shipmentId,
       event_time: currentTime.toISOString(),
@@ -114,26 +114,18 @@ function generateMediumSeverityEvents(
       location: 'Airport',
     });
 
-    currentTime = addHours(currentTime, 24);
+    // Last event should be 1 day before now (1 day past ETA)
+    // This creates the 1 day delay needed for Medium severity
+    currentTime = addDays(now, -1);
     events.push({
       shipment_id: shipmentId,
       event_time: currentTime.toISOString(),
-      event_stage: 'Arrived at customs',
-      description: null,
-      location: 'Customs',
-    });
-
-    // Delay: stuck at customs for 2 days (this causes Medium severity)
-    currentTime = addDays(currentTime, 2);
-    events.push({
-      shipment_id: shipmentId,
-      event_time: currentTime.toISOString(),
-      event_stage: 'Awaiting Customs',
-      description: 'Customs clearance in progress',
-      location: 'Customs',
+      event_stage: 'In transit',
+      description: 'Slight delay in transit',
+      location: 'In Transit',
     });
   } else if (mode === 'Sea') {
-    currentTime = addHours(currentTime, 48);
+    currentTime = addHours(currentTime, 24);
     events.push({
       shipment_id: shipmentId,
       event_time: currentTime.toISOString(),
@@ -142,18 +134,18 @@ function generateMediumSeverityEvents(
       location: 'Port',
     });
 
-    // Delay: port congestion (causes Medium severity)
-    currentTime = addDays(currentTime, 2);
+    // Last event should be 1 day before now (1 day past ETA)
+    currentTime = addDays(now, -1);
     events.push({
       shipment_id: shipmentId,
       event_time: currentTime.toISOString(),
-      event_stage: 'Port Loading',
-      description: 'Port congestion causing delays',
-      location: 'Port',
+      event_stage: 'In Transit',
+      description: 'Slight delay at port',
+      location: 'In Transit',
     });
   } else {
     // Road
-    currentTime = addHours(currentTime, 12);
+    currentTime = addHours(currentTime, 8);
     events.push({
       shipment_id: shipmentId,
       event_time: currentTime.toISOString(),
@@ -162,14 +154,14 @@ function generateMediumSeverityEvents(
       location: 'In Transit',
     });
 
-    // Delay: long dwell at hub
-    currentTime = addDays(currentTime, 2);
+    // Last event should be 1 day before now (1 day past ETA)
+    currentTime = addDays(now, -1);
     events.push({
       shipment_id: shipmentId,
       event_time: currentTime.toISOString(),
-      event_stage: 'Hub Congestion',
-      description: 'Delayed at distribution hub',
-      location: 'Hub',
+      event_stage: 'In transit',
+      description: 'Slight delay in transit',
+      location: 'In Transit',
     });
   }
 
@@ -301,16 +293,17 @@ async function addMediumLowSeverityShipments() {
     const allEvents: any[] = [];
 
     // Add 8 Medium severity shipments (40-59 risk score)
+    // Medium requires: 1 day delay AND short timeline (≤7 days from order to ETA)
     console.log('📦 Generating 8 Medium severity shipments...');
     for (let i = 0; i < 8; i++) {
       const origin = randomElement(CITIES);
       const dest = randomElement(CITIES.filter((c) => c.city !== origin.city));
       const mode = randomElement(['Air', 'Sea', 'Road'] as const);
       
-      // Order date: 10-20 days ago
-      const orderDate = addDays(now, -(10 + Math.random() * 10));
-      // Expected delivery: 2-3 days AGO (past ETA = delayed)
-      const expectedDelivery = addDays(now, -(2 + Math.random() * 1));
+      // Order date: 5-7 days ago (SHORT timeline for Medium severity)
+      const orderDate = addDays(now, -(5 + Math.random() * 2));
+      // Expected delivery: 1 day AGO (1 day delay = Medium if timeline ≤7 days)
+      const expectedDelivery = addDays(now, -1);
 
       const shipmentId = `LD${String(shipmentCounter).padStart(4, '0')}`;
       const shipment = {
@@ -338,15 +331,16 @@ async function addMediumLowSeverityShipments() {
     }
 
     // Add 10 Low severity shipments (20-39 risk score)
+    // Low requires: 1 day delay AND longer timeline (>7 days from order to ETA)
     console.log('📦 Generating 10 Low severity shipments...');
     for (let i = 0; i < 10; i++) {
       const origin = randomElement(CITIES);
       const dest = randomElement(CITIES.filter((c) => c.city !== origin.city));
       const mode = randomElement(['Air', 'Sea', 'Road'] as const);
       
-      // Order date: 5-15 days ago
-      const orderDate = addDays(now, -(5 + Math.random() * 10));
-      // Expected delivery: 1 day AGO (slightly delayed)
+      // Order date: 8-15 days ago (LONGER timeline for Low severity)
+      const orderDate = addDays(now, -(8 + Math.random() * 7));
+      // Expected delivery: 1 day AGO (1 day delay = Low if timeline >7 days)
       const expectedDelivery = addDays(now, -1);
 
       const shipmentId = `LD${String(shipmentCounter).padStart(4, '0')}`;
