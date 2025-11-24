@@ -42,7 +42,9 @@ async function debugSeverityLevels() {
     }
 
     // Group by severity
-    const bySeverity: Record<string, any[]> = {
+  type SeverityKey = 'Critical' | 'High' | 'Medium' | 'Low' | 'Minimal';
+
+  const bySeverity: Record<SeverityKey, any[]> = {
       Critical: [],
       High: [],
       Medium: [],
@@ -61,6 +63,9 @@ async function debugSeverityLevels() {
             : null,
           order_date: s.order_date,
           expected_delivery: s.expected_delivery,
+          risk_factor_points: Array.isArray(s.calculated_risk_factor_points)
+            ? s.calculated_risk_factor_points
+            : [],
         });
       }
     });
@@ -143,6 +148,23 @@ async function debugSeverityLevels() {
       console.log('   Score range:', {
         min: Math.min(...mediumShipments.map((s) => s.risk_score)),
         max: Math.max(...mediumShipments.map((s) => s.risk_score)),
+      });
+
+      console.log('\n📝 Example Medium shipments (with risk factors):');
+      mediumShipments.slice(0, 5).forEach((shipment, index) => {
+        console.log(
+          ` ${index + 1}. ${shipment.shipment_id} (Score: ${shipment.risk_score}, Timeline: ${shipment.timeline_days} days)`,
+        );
+        const factors = shipment.risk_factor_points ?? [];
+        if (factors.length === 0) {
+          console.log('    - Base Score (Delivery Delayed): +50 points');
+        } else {
+          factors.forEach((factor: any) => {
+            console.log(
+              `    - ${factor.factor}: +${factor.points} points${factor.description ? ` (${factor.description})` : ''}`,
+            );
+          });
+        }
       });
     }
 
