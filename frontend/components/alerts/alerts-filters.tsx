@@ -355,8 +355,7 @@ export const AlertsFilters = ({ filters, onFiltersChange, carriers, serviceLevel
             )}
             {(filters.origin || filters.destination || filters.owner || filters.serviceLevel ||
               filters.minRiskScore !== undefined || filters.maxRiskScore !== undefined ||
-              filters.minDaysToEta !== undefined || filters.maxDaysToEta !== undefined ||
-              filters.acknowledged !== undefined) && (
+              filters.minDaysToEta !== undefined || filters.maxDaysToEta !== undefined) && (
               <Badge variant="outline" className="gap-1">
                 +{activeFilterCount - (filters.severity ? 1 : 0) - (filters.mode ? 1 : 0) - (filters.carrier ? 1 : 0) - (filters.search ? 1 : 0) - (filters.riskFactor ? 1 : 0)} more
               </Badge>
@@ -518,40 +517,6 @@ export const AlertsFilters = ({ filters, onFiltersChange, carriers, serviceLevel
                 )}
               </div>
 
-              {/* Acknowledged Status */}
-              <div className="space-y-2">
-                <Label htmlFor="acknowledged">Acknowledged</Label>
-                {isMounted ? (
-                  <Select
-                    value={
-                      filters.acknowledged === undefined
-                        ? 'all'
-                        : filters.acknowledged
-                        ? 'true'
-                        : 'false'
-                    }
-                    onValueChange={(value) =>
-                      onFiltersChange({
-                        ...filters,
-                        acknowledged: value === 'all' ? undefined : value === 'true',
-                      })
-                    }
-                  >
-                    <SelectTrigger id="acknowledged">
-                      <SelectValue placeholder="All" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">All</SelectItem>
-                      <SelectItem value="true">Acknowledged</SelectItem>
-                      <SelectItem value="false">Not Acknowledged</SelectItem>
-                    </SelectContent>
-                  </Select>
-                ) : (
-                  <div className="h-9 w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm flex items-center text-muted-foreground">
-                    Loading...
-                  </div>
-                )}
-              </div>
             </div>
 
             {/* Risk Score Range */}

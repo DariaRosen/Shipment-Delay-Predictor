@@ -25,7 +25,6 @@ export const apiClient = {
     if (filters?.maxRiskScore !== undefined) params.append('maxRiskScore', String(filters.maxRiskScore))
     if (filters?.minDaysToEta !== undefined) params.append('minDaysToEta', String(filters.minDaysToEta))
     if (filters?.maxDaysToEta !== undefined) params.append('maxDaysToEta', String(filters.maxDaysToEta))
-    if (filters?.acknowledged !== undefined) params.append('acknowledged', String(filters.acknowledged))
 
     const url = `${API_BASE_URL}/alerts?${params.toString()}`
     console.log('Fetching alerts from:', url)

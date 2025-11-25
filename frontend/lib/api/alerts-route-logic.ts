@@ -238,9 +238,6 @@ export async function fetchAndCalculateAlerts(filters?: AlertsFilters & { shipme
       return false;
     });
   }
-  if (filters?.acknowledged !== undefined) {
-    filteredAlerts = filteredAlerts.filter(a => a.acknowledged === filters.acknowledged);
-  }
 
   return filteredAlerts;
 }

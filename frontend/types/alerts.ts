@@ -87,6 +87,5 @@ export interface AlertsFilters {
   maxRiskScore?: number
   minDaysToEta?: number
   maxDaysToEta?: number
-  acknowledged?: boolean
 }
 
