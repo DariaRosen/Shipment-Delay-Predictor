@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { SeverityDonut } from '@/components/charts/severity-donut'
 import { RiskCausesBar } from '@/components/charts/risk-causes-bar'
 import { AlertShipment, Severity, RiskReason } from '@/types/alerts'
-import { formatRiskReason } from '@/lib/risk-factor-explanations'
+import { formatRiskReason, getRiskFactorExplanation } from '@/lib/risk-factor-explanations'
 import { useMemo } from 'react'
 
 interface AlertsSummaryProps {
@@ -37,39 +37,58 @@ export const AlertsSummary = ({ alerts }: AlertsSummaryProps) => {
     [severityCounts],
   )
 
-  const additionalFactorLabels: Record<string, string> = {
-    BaseScore: 'Delay in steps',
-    DelayInSteps: 'Delay in steps',
-    LongDistance: 'Long Distance',
-    International: 'International Shipment',
-    PeakSeason: 'Peak Season (Nov/Dec)',
-    WeekendDelay: 'Weekend Processing Delay',
-    ExpressRisk: 'Express Service Risk',
+  const additionalFactorMeta: Record<string, { label: string; description: string }> = {
+    BaseScore: { label: 'Delay in steps', description: 'Base delay component from missed milestones.' },
+    DelayInSteps: { label: 'Delay in steps', description: 'Base delay component from missed milestones.' },
+    LongDistance: { label: 'Long Distance', description: 'Extended transit times on very long routes.' },
+    International: { label: 'International Shipment', description: 'Additional processing for cross-border moves.' },
+    PeakSeason: { label: 'Peak Season (Nov/Dec)', description: 'Seasonal congestion around holidays.' },
+    WeekendDelay: { label: 'Weekend Processing Delay', description: 'Facilities paused over the weekend.' },
+    ExpressRisk: { label: 'Express Service Risk', description: 'Express service not meeting promised timeline.' },
   }
 
   const riskCausesData = useMemo(() => {
-    const counts: Record<string, number> = {}
+    const counts: Record<
+      string,
+      {
+        label: string
+        description?: string
+        count: number
+      }
+    > = {}
 
-    const increment = (label: string) => {
-      counts[label] = (counts[label] || 0) + 1
+    const increment = (key: string, label: string, description?: string) => {
+      if (!counts[key]) {
+        counts[key] = { label, description, count: 0 }
+      }
+      counts[key].count += 1
     }
 
     alerts.forEach((alert) => {
       alert.riskReasons.forEach((reason) => {
-        increment(formatRiskReason(reason))
+        const explanation = getRiskFactorExplanation(reason)
+        increment(reason, explanation.name, explanation.description)
       })
 
       alert.riskFactorPoints?.forEach((factor) => {
-        const label =
-          additionalFactorLabels[factor.factor as keyof typeof additionalFactorLabels] ||
-          formatRiskReason(factor.factor as unknown as RiskReason) ||
-          factor.factor.replace(/([A-Z])/g, ' $1').trim()
-        increment(label)
+        const meta = additionalFactorMeta[factor.factor]
+        const fallbackLabel =
+          formatRiskReason(factor.factor as RiskReason) || factor.factor.replace(/([A-Z])/g, ' $1').trim()
+        increment(
+          factor.factor,
+          meta?.label ?? fallbackLabel,
+          factor.description ?? meta?.description ?? 'Driver for the aggregated risk score.',
+        )
       })
     })
 
     return Object.entries(counts)
-      .map(([reason, count]) => ({ reason, count }))
+      .map(([reasonKey, value]) => ({
+        reasonKey,
+        label: value.label,
+        count: value.count,
+        description: value.description,
+      }))
       .sort((a, b) => b.count - a.count)
       .slice(0, 8)
   }, [alerts])

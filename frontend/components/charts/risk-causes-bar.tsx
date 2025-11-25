@@ -5,23 +5,19 @@ import { RiskReason } from '@/types/alerts'
 import { getRiskFactorExplanation } from '@/lib/risk-factor-explanations'
 
 interface RiskCausesBarProps {
-  data: { reason: string; count: number }[]
+  data: { reasonKey: string; label: string; count: number; description?: string }[]
 }
 
 export const RiskCausesBar = ({ data }: RiskCausesBarProps) => {
   const formattedData = data.map((item) => {
-    const explanation =
-      getRiskFactorExplanation(item.reason as RiskReason) ??
-      {
-        name: item.reason,
-        description: item.reasons ?? 'Driver for the aggregated risk score.',
-        icon: '⚠️',
-        severity: 'Low',
-      }
+    const explanation = getRiskFactorExplanation(item.reasonKey as RiskReason)
+    const formattedReason = item.label ?? explanation?.name ?? item.reasonKey
+    const description = item.description ?? explanation?.description ?? 'Driver for the aggregated risk score.'
+
     return {
       ...item,
-      formattedReason: explanation.name || item.reason,
-      description: explanation.description || 'Associated risk factor',
+      formattedReason,
+      description,
     }
   })
 
