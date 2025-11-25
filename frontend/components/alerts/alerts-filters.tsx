@@ -24,8 +24,10 @@ const MAX_HISTORY_ITEMS = 10
 export const AlertsFilters = ({ filters, onFiltersChange, carriers }: AlertsFiltersProps) => {
   const [searchHistory, setSearchHistory] = useState<string[]>([])
   const [showHistory, setShowHistory] = useState(false)
+  const [isMounted, setIsMounted] = useState(false)
 
   useEffect(() => {
+    setIsMounted(true)
     const history = localStorage.getItem(SEARCH_HISTORY_KEY)
     if (history) {
       try {
@@ -104,75 +106,93 @@ export const AlertsFilters = ({ filters, onFiltersChange, carriers }: AlertsFilt
 
       <div className="space-y-2">
         <Label htmlFor="severity">Risk Score</Label>
-        <Select
-          value={filters.severity || 'all'}
-          onValueChange={(value) =>
-            onFiltersChange({
-              ...filters,
-              severity: value === 'all' ? undefined : (value as Severity),
-            })
-          }
-        >
-          <SelectTrigger id="severity">
-            <SelectValue placeholder="All risk scores" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All Risk Scores</SelectItem>
-            <SelectItem value="Critical">Critical</SelectItem>
-            <SelectItem value="High">High</SelectItem>
-            <SelectItem value="Medium">Medium</SelectItem>
-            <SelectItem value="Low">Low</SelectItem>
-            <SelectItem value="Minimal">Minimal</SelectItem>
-          </SelectContent>
-        </Select>
+        {isMounted ? (
+          <Select
+            value={filters.severity || 'all'}
+            onValueChange={(value) =>
+              onFiltersChange({
+                ...filters,
+                severity: value === 'all' ? undefined : (value as Severity),
+              })
+            }
+          >
+            <SelectTrigger id="severity">
+              <SelectValue placeholder="All risk scores" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Risk Scores</SelectItem>
+              <SelectItem value="Critical">Critical</SelectItem>
+              <SelectItem value="High">High</SelectItem>
+              <SelectItem value="Medium">Medium</SelectItem>
+              <SelectItem value="Low">Low</SelectItem>
+              <SelectItem value="Minimal">Minimal</SelectItem>
+            </SelectContent>
+          </Select>
+        ) : (
+          <div className="h-9 w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm flex items-center text-muted-foreground">
+            Loading...
+          </div>
+        )}
       </div>
 
       <div className="space-y-2">
         <Label htmlFor="mode">Mode</Label>
-        <Select
-          value={filters.mode || 'all'}
-          onValueChange={(value) =>
-            onFiltersChange({
-              ...filters,
-              mode: value === 'all' ? undefined : (value as Mode),
-            })
-          }
-        >
-          <SelectTrigger id="mode">
-            <SelectValue placeholder="All modes" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All Modes</SelectItem>
-            <SelectItem value="Air">Air</SelectItem>
-            <SelectItem value="Sea">Sea</SelectItem>
-            <SelectItem value="Road">Road</SelectItem>
-          </SelectContent>
-        </Select>
+        {isMounted ? (
+          <Select
+            value={filters.mode || 'all'}
+            onValueChange={(value) =>
+              onFiltersChange({
+                ...filters,
+                mode: value === 'all' ? undefined : (value as Mode),
+              })
+            }
+          >
+            <SelectTrigger id="mode">
+              <SelectValue placeholder="All modes" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Modes</SelectItem>
+              <SelectItem value="Air">Air</SelectItem>
+              <SelectItem value="Sea">Sea</SelectItem>
+              <SelectItem value="Road">Road</SelectItem>
+            </SelectContent>
+          </Select>
+        ) : (
+          <div className="h-9 w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm flex items-center text-muted-foreground">
+            Loading...
+          </div>
+        )}
       </div>
 
       <div className="space-y-2">
         <Label htmlFor="carrier">Carrier</Label>
-        <Select
-          value={filters.carrier || 'all'}
-          onValueChange={(value) =>
-            onFiltersChange({
-              ...filters,
-              carrier: value === 'all' ? undefined : value,
-            })
-          }
-        >
-          <SelectTrigger id="carrier">
-            <SelectValue placeholder="All carriers" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All Carriers</SelectItem>
-            {carriers.map((carrier) => (
-              <SelectItem key={carrier} value={carrier}>
-                {carrier}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        {isMounted ? (
+          <Select
+            value={filters.carrier || 'all'}
+            onValueChange={(value) =>
+              onFiltersChange({
+                ...filters,
+                carrier: value === 'all' ? undefined : value,
+              })
+            }
+          >
+            <SelectTrigger id="carrier">
+              <SelectValue placeholder="All carriers" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Carriers</SelectItem>
+              {carriers.map((carrier) => (
+                <SelectItem key={carrier} value={carrier}>
+                  {carrier}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        ) : (
+          <div className="h-9 w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm flex items-center text-muted-foreground">
+            Loading...
+          </div>
+        )}
       </div>
     </div>
   )

@@ -44,6 +44,12 @@ const months = [
 ]
 
 export const ShipmentsFilters = ({ filters, onFiltersChange }: ShipmentsFiltersProps) => {
+  const [isMounted, setIsMounted] = useState(false)
+
+  useEffect(() => {
+    setIsMounted(true)
+  }, [])
+
   return (
     <div className="grid grid-cols-1 md:grid-cols-4 gap-4 p-4 border-teal-200 rounded-lg bg-white/95 shadow-sm">
       <div className="space-y-2">
@@ -61,78 +67,96 @@ export const ShipmentsFilters = ({ filters, onFiltersChange }: ShipmentsFiltersP
 
       <div className="space-y-2">
         <Label htmlFor="year">Year</Label>
-        <Select
-          value={filters.year ? String(filters.year) : 'all'}
-          onValueChange={(value) =>
-            onFiltersChange({
-              ...filters,
-              year: value === 'all' ? undefined : parseInt(value, 10),
-              month: value === 'all' ? undefined : filters.month, // Clear month if year is cleared
-            })
-          }
-        >
-          <SelectTrigger id="year">
-            <SelectValue placeholder="All years" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All Years</SelectItem>
-            {years.map((year) => (
-              <SelectItem key={year} value={String(year)}>
-                {year}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        {isMounted ? (
+          <Select
+            value={filters.year ? String(filters.year) : 'all'}
+            onValueChange={(value) =>
+              onFiltersChange({
+                ...filters,
+                year: value === 'all' ? undefined : parseInt(value, 10),
+                month: value === 'all' ? undefined : filters.month, // Clear month if year is cleared
+              })
+            }
+          >
+            <SelectTrigger id="year">
+              <SelectValue placeholder="All years" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Years</SelectItem>
+              {years.map((year) => (
+                <SelectItem key={year} value={String(year)}>
+                  {year}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        ) : (
+          <div className="h-9 w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm flex items-center text-muted-foreground">
+            Loading...
+          </div>
+        )}
       </div>
 
       <div className="space-y-2">
         <Label htmlFor="month">Month</Label>
-        <Select
-          value={filters.month ? String(filters.month) : 'all'}
-          onValueChange={(value) =>
-            onFiltersChange({
-              ...filters,
-              month: value === 'all' ? undefined : parseInt(value, 10),
-            })
-          }
-          disabled={!filters.year}
-        >
-          <SelectTrigger id="month">
-            <SelectValue placeholder="All months" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All Months</SelectItem>
-            {months.map((month) => (
-              <SelectItem key={month.value} value={String(month.value)}>
-                {month.label}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        {isMounted ? (
+          <Select
+            value={filters.month ? String(filters.month) : 'all'}
+            onValueChange={(value) =>
+              onFiltersChange({
+                ...filters,
+                month: value === 'all' ? undefined : parseInt(value, 10),
+              })
+            }
+            disabled={!filters.year}
+          >
+            <SelectTrigger id="month">
+              <SelectValue placeholder="All months" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Months</SelectItem>
+              {months.map((month) => (
+                <SelectItem key={month.value} value={String(month.value)}>
+                  {month.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        ) : (
+          <div className="h-9 w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm flex items-center text-muted-foreground">
+            Loading...
+          </div>
+        )}
       </div>
 
       <div className="space-y-2">
         <Label htmlFor="status">Status</Label>
-        <Select
-          value={filters.status || 'all'}
-          onValueChange={(value) =>
-            onFiltersChange({
-              ...filters,
-              status: value === 'all' ? undefined : (value as 'completed' | 'in_progress' | 'canceled' | 'future'),
-            })
-          }
-        >
-          <SelectTrigger id="status">
-            <SelectValue placeholder="All statuses" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All Statuses</SelectItem>
-            <SelectItem value="completed">Completed</SelectItem>
-            <SelectItem value="in_progress">In Progress</SelectItem>
-            <SelectItem value="canceled">Canceled</SelectItem>
-            <SelectItem value="future">Future</SelectItem>
-          </SelectContent>
-        </Select>
+        {isMounted ? (
+          <Select
+            value={filters.status || 'all'}
+            onValueChange={(value) =>
+              onFiltersChange({
+                ...filters,
+                status: value === 'all' ? undefined : (value as 'completed' | 'in_progress' | 'canceled' | 'future'),
+              })
+            }
+          >
+            <SelectTrigger id="status">
+              <SelectValue placeholder="All statuses" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Statuses</SelectItem>
+              <SelectItem value="completed">Completed</SelectItem>
+              <SelectItem value="in_progress">In Progress</SelectItem>
+              <SelectItem value="canceled">Canceled</SelectItem>
+              <SelectItem value="future">Future</SelectItem>
+            </SelectContent>
+          </Select>
+        ) : (
+          <div className="h-9 w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm flex items-center text-muted-foreground">
+            Loading...
+          </div>
+        )}
       </div>
     </div>
   )
