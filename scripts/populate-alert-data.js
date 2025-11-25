@@ -1,6 +1,5 @@
 /**
  * Script to populate calculated alert data in the database.
- * Run this after running the migration: backend/supabase/migration_add_alert_data.sql
  * 
  * Usage:
  *   node scripts/populate-alert-data.js

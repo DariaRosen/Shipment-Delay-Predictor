@@ -43,3 +43,9 @@ Thumbs.db
 .cache/
 .turbo/
 
+# Documentation (keep only README.md)
+docs/
+*.md
+!README.md
+!frontend/README.md
+

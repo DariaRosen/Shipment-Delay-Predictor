@@ -96,3 +96,4 @@ if (shipmentIds.length === 0) {
 
 Promise.all(shipmentIds.map(id => checkShipmentRiskDetail(id))).catch(console.error);
 
+
