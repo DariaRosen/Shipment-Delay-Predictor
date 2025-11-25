@@ -45,6 +45,34 @@ const getRiskIcon = (reason: RiskReason) => {
   return explanation.icon
 }
 
+const severityBaseScores: Record<Severity, number> = {
+  Critical: 90,
+  High: 70,
+  Medium: 50,
+  Low: 20,
+  Minimal: 0,
+}
+
+const buildDisplayRiskFactors = (alert: AlertShipment): RiskFactorPoints[] => {
+  const filtered =
+    alert.riskFactorPoints
+      ?.filter((rfp) => !(rfp.factor === 'Delayed' && rfp.points === 0))
+      ?.map((rfp) => ({ ...rfp })) || []
+
+  if (filtered.length === 0 && alert.riskScore > 0) {
+    const baseScore = severityBaseScores[alert.severity] || 0
+    if (baseScore > 0) {
+      filtered.push({
+        factor: 'DelayInSteps',
+        points: baseScore,
+        description: 'Delay detected between planned and actual milestone progress',
+      })
+    }
+  }
+
+  return filtered
+}
+
 export const AlertsTable = ({ alerts, onRowClick }: AlertsTableProps) => {
   return (
     <div className="rounded-md border-teal-200 bg-white/95 shadow-sm">
@@ -63,7 +91,10 @@ export const AlertsTable = ({ alerts, onRowClick }: AlertsTableProps) => {
           </TableRow>
         </TableHeader>
         <TableBody>
-          {alerts.map((alert) => (
+          {alerts.map((alert) => {
+            const riskFactors = buildDisplayRiskFactors(alert)
+
+            return (
             <TableRow
               key={alert.shipmentId}
               className="cursor-pointer hover:bg-muted/50"
@@ -97,16 +128,9 @@ export const AlertsTable = ({ alerts, onRowClick }: AlertsTableProps) => {
               <TableCell>
                 <TooltipProvider>
                   <div className="flex gap-1.5 flex-wrap items-center">
-                    {alert.riskFactorPoints && alert.riskFactorPoints.length > 0 ? (
+                    {riskFactors.length > 0 ? (
+                      riskFactors
                       // Show risk factors with points breakdown
-                      alert.riskFactorPoints
-                        .filter((rfp: RiskFactorPoints) => {
-                          // Skip Delayed if it has 0 points (delay already shown in base score)
-                          if (rfp.factor === 'Delayed' && rfp.points === 0) {
-                            return false;
-                          }
-                          return true;
-                        })
                         .sort((a: RiskFactorPoints, b: RiskFactorPoints) => {
                           // Sort: BaseScore first, then by points descending
                           if (a.factor === 'BaseScore') return -1;
@@ -120,12 +144,14 @@ export const AlertsTable = ({ alerts, onRowClick }: AlertsTableProps) => {
                             rfp.factor !== 'International' &&
                             rfp.factor !== 'PeakSeason' &&
                             rfp.factor !== 'WeekendDelay' &&
-                            rfp.factor !== 'ExpressRisk'
+                            rfp.factor !== 'ExpressRisk' &&
+                            rfp.factor !== 'DelayInSteps'
                             ? getRiskFactorExplanation(rfp.factor as RiskReason)
                             : null;
                           
                           const factorName = explanation?.name || 
-                            (rfp.factor === 'BaseScore' ? 'Base Score' :
+                            (rfp.factor === 'BaseScore' ? 'Delay in steps' :
+                             rfp.factor === 'DelayInSteps' ? 'Delay across steps' :
                              rfp.factor === 'LongDistance' ? 'Long Distance' :
                              rfp.factor === 'International' ? 'International' :
                              rfp.factor === 'PeakSeason' ? 'Peak Season' :
@@ -135,6 +161,7 @@ export const AlertsTable = ({ alerts, onRowClick }: AlertsTableProps) => {
                           
                           const factorIcon = explanation?.icon || 
                             (rfp.factor === 'BaseScore' ? '🎯' :
+                             rfp.factor === 'DelayInSteps' ? '⏱️' :
                              rfp.factor === 'LongDistance' ? '📏' :
                              rfp.factor === 'International' ? '🌍' :
                              rfp.factor === 'PeakSeason' ? '🎄' :
@@ -178,6 +205,11 @@ export const AlertsTable = ({ alerts, onRowClick }: AlertsTableProps) => {
                           );
                         })
                     ) : (
+                      <Badge variant="outline" className="text-xs text-muted-foreground">
+                        No risk signals yet
+                      </Badge>
+                    )}
+                    {alert.riskReasons.length > 0 && riskFactors.length === 0 ? (
                       // Fallback: show risk reasons without points (for backwards compatibility)
                       alert.riskReasons.map((reason) => {
                         const explanation = getRiskFactorExplanation(reason)
@@ -205,13 +237,13 @@ export const AlertsTable = ({ alerts, onRowClick }: AlertsTableProps) => {
                           </Tooltip>
                         )
                       })
-                    )}
+                    ) : null}
                   </div>
                 </TooltipProvider>
               </TableCell>
               <TableCell className="text-sm text-muted-foreground">{alert.owner}</TableCell>
             </TableRow>
-          ))}
+          )})}
         </TableBody>
       </Table>
     </div>

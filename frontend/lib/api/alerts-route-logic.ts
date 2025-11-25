@@ -1,6 +1,40 @@
 import { getSupabaseClient } from '@/lib/supabase';
 import { calculateShipmentAlert } from '@/lib/api/calculate-shipment-alert';
-import type { AlertShipment, AlertsFilters } from '@/types/alerts';
+import type { AlertShipment, AlertsFilters, RiskFactorPoints } from '@/types/alerts';
+
+const MS_IN_DAY = 24 * 60 * 60 * 1000;
+
+function buildBaseRiskFactorPoint(shipment: any): RiskFactorPoints {
+  const points = Number(shipment.calculated_risk_score) || 0;
+  const expectedDelivery = shipment.expected_delivery ? new Date(shipment.expected_delivery) : null;
+  const daysPastEta =
+    expectedDelivery != null ? Math.max(0, Math.round((Date.now() - expectedDelivery.getTime()) / MS_IN_DAY)) : null;
+  const timelineDays =
+    shipment.order_date && shipment.expected_delivery
+      ? Math.max(
+          0,
+          Math.round(
+            (new Date(shipment.expected_delivery).getTime() - new Date(shipment.order_date).getTime()) / MS_IN_DAY,
+          ),
+        )
+      : null;
+
+  let description = 'Delay detected in planned shipment steps.';
+  if (typeof daysPastEta === 'number' && daysPastEta > 0) {
+    description = `${daysPastEta} day${daysPastEta === 1 ? '' : 's'} past the expected delivery milestone.`;
+  } else if (typeof shipment.calculated_days_to_eta === 'number' && shipment.calculated_days_to_eta <= 0) {
+    const overdue = Math.abs(shipment.calculated_days_to_eta);
+    description = `${overdue} day${overdue === 1 ? '' : 's'} past the planned timeline.`;
+  } else if (typeof timelineDays === 'number' && timelineDays <= 7) {
+    description = `Short ${timelineDays}-day lane running behind schedule.`;
+  }
+
+  return {
+    factor: 'BaseScore',
+    points,
+    description,
+  };
+}
 
 /**
  * Shared logic for fetching alerts from database.
@@ -87,7 +121,20 @@ export async function fetchAndCalculateAlerts(filters?: AlertsFilters & { shipme
       // Use stored calculated data for risk info, but generate steps dynamically
       // Steps need to be generated from events to show actual completion times
       const alertWithSteps = calculateShipmentAlert(s, events);
-      
+
+      const storedPoints: RiskFactorPoints[] = Array.isArray(s.calculated_risk_factor_points)
+        ? [...s.calculated_risk_factor_points]
+        : [];
+
+      const shouldAddBasePoint =
+        storedPoints.length === 0 &&
+        typeof s.calculated_risk_score === 'number' &&
+        s.calculated_risk_score > 0 &&
+        s.calculated_severity &&
+        s.calculated_severity !== 'Minimal';
+
+      const normalizedPoints = shouldAddBasePoint ? [buildBaseRiskFactorPoint(s)] : storedPoints;
+
       // Override with stored calculated data (for consistency) but keep steps
       alerts.push({
         ...alertWithSteps, // This includes steps generated from events
@@ -95,7 +142,7 @@ export async function fetchAndCalculateAlerts(filters?: AlertsFilters & { shipme
         riskScore: s.calculated_risk_score,
         severity: s.calculated_severity,
         riskReasons: s.calculated_risk_reasons || [],
-        riskFactorPoints: s.calculated_risk_factor_points || [],
+        riskFactorPoints: normalizedPoints,
         status: s.calculated_status || 'in_progress',
         currentStage: s.calculated_current_stage || s.current_status,
         daysToEta: s.calculated_days_to_eta ?? 0,

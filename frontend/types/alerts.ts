@@ -26,7 +26,15 @@ export interface ShipmentStep {
 }
 
 export interface RiskFactorPoints {
-  factor: RiskReason | 'BaseScore' | 'LongDistance' | 'International' | 'PeakSeason' | 'WeekendDelay' | 'ExpressRisk'
+  factor:
+    | RiskReason
+    | 'BaseScore'
+    | 'LongDistance'
+    | 'International'
+    | 'PeakSeason'
+    | 'WeekendDelay'
+    | 'ExpressRisk'
+    | 'DelayInSteps'
   points: number
   description?: string
 }
