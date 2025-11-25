@@ -1,5 +1,6 @@
 'use client'
 
+import { useState, useMemo } from 'react'
 import {
   Table,
   TableBody,
@@ -17,6 +18,20 @@ import {
 } from '@/components/ui/tooltip'
 import { AlertShipment, Severity, RiskReason, RiskFactorPoints } from '@/types/alerts'
 import { getRiskFactorExplanation, formatRiskReason } from '@/lib/risk-factor-explanations'
+import { ArrowUpDown, ArrowUp, ArrowDown } from 'lucide-react'
+import { cn } from '@/lib/utils'
+
+type SortField =
+  | 'riskScore'
+  | 'shipmentId'
+  | 'lane'
+  | 'mode'
+  | 'carrier'
+  | 'currentStage'
+  | 'eta'
+  | 'owner'
+
+type SortOrder = 'asc' | 'desc'
 
 interface AlertsTableProps {
   alerts: AlertShipment[]
@@ -73,25 +88,181 @@ const buildDisplayRiskFactors = (alert: AlertShipment): RiskFactorPoints[] => {
   return filtered
 }
 
+const SortableHeader = ({
+  field,
+  label,
+  sortBy,
+  sortOrder,
+  onSort,
+}: {
+  field: SortField
+  label: string
+  sortBy?: SortField
+  sortOrder?: SortOrder
+  onSort?: (field: SortField) => void
+}) => {
+  const isSorted = sortBy === field
+  const canSort = !!onSort
+
+  const handleClick = () => {
+    if (canSort) {
+      onSort(field)
+    }
+  }
+
+  return (
+    <TableHead
+      className={cn(
+        canSort && 'cursor-pointer hover:bg-muted/50 select-none',
+        isSorted && 'bg-muted/30'
+      )}
+      onClick={handleClick}
+    >
+      <div className="flex items-center gap-2">
+        <span>{label}</span>
+        {canSort && (
+          <span className="inline-flex items-center">
+            {isSorted ? (
+              sortOrder === 'asc' ? (
+                <ArrowUp className="h-4 w-4 text-teal-600" />
+              ) : (
+                <ArrowDown className="h-4 w-4 text-teal-600" />
+              )
+            ) : (
+              <ArrowUpDown className="h-4 w-4 text-muted-foreground" />
+            )}
+          </span>
+        )}
+      </div>
+    </TableHead>
+  )
+}
+
+const sortAlerts = (alerts: AlertShipment[], field: SortField, order: SortOrder): AlertShipment[] => {
+  const sorted = [...alerts].sort((a, b) => {
+    let comparison = 0
+
+    switch (field) {
+      case 'riskScore':
+        comparison = a.riskScore - b.riskScore
+        break
+      case 'shipmentId':
+        comparison = a.shipmentId.localeCompare(b.shipmentId)
+        break
+      case 'lane':
+        const laneA = `${a.origin} → ${a.destination}`
+        const laneB = `${b.origin} → ${b.destination}`
+        comparison = laneA.localeCompare(laneB)
+        break
+      case 'mode':
+        comparison = a.mode.localeCompare(b.mode)
+        break
+      case 'carrier':
+        comparison = a.carrierName.localeCompare(b.carrierName)
+        break
+      case 'currentStage':
+        comparison = a.currentStage.localeCompare(b.currentStage)
+        break
+      case 'eta':
+        comparison = new Date(a.plannedEta).getTime() - new Date(b.plannedEta).getTime()
+        break
+      case 'owner':
+        comparison = a.owner.localeCompare(b.owner)
+        break
+      default:
+        return 0
+    }
+
+    return order === 'asc' ? comparison : -comparison
+  })
+
+  return sorted
+}
+
 export const AlertsTable = ({ alerts, onRowClick }: AlertsTableProps) => {
+  const [sortBy, setSortBy] = useState<SortField>('riskScore')
+  const [sortOrder, setSortOrder] = useState<SortOrder>('desc')
+
+  const handleSort = (field: SortField) => {
+    if (sortBy === field) {
+      // Toggle order if same field
+      setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc')
+    } else {
+      // New field, default to descending for riskScore, ascending for others
+      setSortBy(field)
+      setSortOrder(field === 'riskScore' ? 'desc' : 'asc')
+    }
+  }
+
+  const sortedAlerts = useMemo(() => {
+    return sortAlerts(alerts, sortBy, sortOrder)
+  }, [alerts, sortBy, sortOrder])
   return (
     <div className="rounded-md border-teal-200 bg-white/95 shadow-sm">
       <Table>
         <TableHeader>
           <TableRow>
-            <TableHead>Risk Score</TableHead>
-            <TableHead>Shipment ID</TableHead>
-            <TableHead>Lane</TableHead>
-            <TableHead>Mode</TableHead>
-            <TableHead>Carrier</TableHead>
-            <TableHead>Current Stage</TableHead>
-            <TableHead>ETA</TableHead>
+            <SortableHeader
+              field="riskScore"
+              label="Risk Score"
+              sortBy={sortBy}
+              sortOrder={sortOrder}
+              onSort={handleSort}
+            />
+            <SortableHeader
+              field="shipmentId"
+              label="Shipment ID"
+              sortBy={sortBy}
+              sortOrder={sortOrder}
+              onSort={handleSort}
+            />
+            <SortableHeader
+              field="lane"
+              label="Lane"
+              sortBy={sortBy}
+              sortOrder={sortOrder}
+              onSort={handleSort}
+            />
+            <SortableHeader
+              field="mode"
+              label="Mode"
+              sortBy={sortBy}
+              sortOrder={sortOrder}
+              onSort={handleSort}
+            />
+            <SortableHeader
+              field="carrier"
+              label="Carrier"
+              sortBy={sortBy}
+              sortOrder={sortOrder}
+              onSort={handleSort}
+            />
+            <SortableHeader
+              field="currentStage"
+              label="Current Stage"
+              sortBy={sortBy}
+              sortOrder={sortOrder}
+              onSort={handleSort}
+            />
+            <SortableHeader
+              field="eta"
+              label="ETA"
+              sortBy={sortBy}
+              sortOrder={sortOrder}
+              onSort={handleSort}
+            />
             <TableHead>Risk Factors</TableHead>
-            <TableHead>Owner</TableHead>
+            <SortableHeader
+              field="owner"
+              label="Owner"
+              sortBy={sortBy}
+              sortOrder={sortOrder}
+              onSort={handleSort}
+            />
           </TableRow>
         </TableHeader>
         <TableBody>
-          {alerts.map((alert) => {
+          {sortedAlerts.map((alert) => {
             const riskFactors = buildDisplayRiskFactors(alert)
 
             return (
