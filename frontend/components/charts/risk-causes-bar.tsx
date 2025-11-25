@@ -19,11 +19,16 @@ export const RiskCausesBar = ({ data }: RiskCausesBarProps) => {
   })
 
   return (
-    <ResponsiveContainer width="100%" height={250}>
-      <BarChart data={formattedData} layout="vertical">
+    <ResponsiveContainer width="100%" height={260}>
+      <BarChart data={formattedData} layout="vertical" margin={{ left: 0, right: 12 }}>
         <CartesianGrid strokeDasharray="3 3" />
         <XAxis type="number" />
-        <YAxis dataKey="formattedReason" type="category" width={120} />
+        <YAxis
+          dataKey="formattedReason"
+          type="category"
+          width={170}
+          tick={{ fontSize: 12, fill: '#0f766e' }}
+        />
         <Tooltip
           content={({ active, payload }) => {
             if (active && payload && payload.length) {
