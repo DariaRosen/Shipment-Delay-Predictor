@@ -3,7 +3,8 @@
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { SeverityDonut } from '@/components/charts/severity-donut'
 import { RiskCausesBar } from '@/components/charts/risk-causes-bar'
-import { AlertShipment, Severity } from '@/types/alerts'
+import { AlertShipment, Severity, RiskReason } from '@/types/alerts'
+import { formatRiskReason } from '@/lib/risk-factor-explanations'
 import { useMemo } from 'react'
 
 interface AlertsSummaryProps {
@@ -36,17 +37,41 @@ export const AlertsSummary = ({ alerts }: AlertsSummaryProps) => {
     [severityCounts],
   )
 
+  const additionalFactorLabels: Record<string, string> = {
+    BaseScore: 'Delay in steps',
+    DelayInSteps: 'Delay in steps',
+    LongDistance: 'Long Distance',
+    International: 'International Shipment',
+    PeakSeason: 'Peak Season (Nov/Dec)',
+    WeekendDelay: 'Weekend Processing Delay',
+    ExpressRisk: 'Express Service Risk',
+  }
+
   const riskCausesData = useMemo(() => {
     const counts: Record<string, number> = {}
+
+    const increment = (label: string) => {
+      counts[label] = (counts[label] || 0) + 1
+    }
+
     alerts.forEach((alert) => {
       alert.riskReasons.forEach((reason) => {
-        counts[reason] = (counts[reason] || 0) + 1
+        increment(formatRiskReason(reason))
+      })
+
+      alert.riskFactorPoints?.forEach((factor) => {
+        const label =
+          additionalFactorLabels[factor.factor as keyof typeof additionalFactorLabels] ||
+          formatRiskReason(factor.factor as unknown as RiskReason) ||
+          factor.factor.replace(/([A-Z])/g, ' $1').trim()
+        increment(label)
       })
     })
+
     return Object.entries(counts)
       .map(([reason, count]) => ({ reason, count }))
       .sort((a, b) => b.count - a.count)
-      .slice(0, 5)
+      .slice(0, 8)
   }, [alerts])
 
   const severityOrder: Severity[] = ['Critical', 'High', 'Medium', 'Low', 'Minimal']
