@@ -10,11 +10,18 @@ interface RiskCausesBarProps {
 
 export const RiskCausesBar = ({ data }: RiskCausesBarProps) => {
   const formattedData = data.map((item) => {
-    const explanation = getRiskFactorExplanation(item.reason as RiskReason)
+    const explanation =
+      getRiskFactorExplanation(item.reason as RiskReason) ??
+      {
+        name: item.reason,
+        description: item.reasons ?? 'Driver for the aggregated risk score.',
+        icon: '⚠️',
+        severity: 'Low',
+      }
     return {
       ...item,
-      formattedReason: explanation.name,
-      description: explanation.description,
+      formattedReason: explanation.name || item.reason,
+      description: explanation.description || 'Associated risk factor',
     }
   })
 
