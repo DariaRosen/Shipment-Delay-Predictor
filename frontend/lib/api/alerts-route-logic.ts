@@ -220,8 +220,23 @@ export async function fetchAndCalculateAlerts(filters?: AlertsFilters & { shipme
   if (filters?.maxDaysToEta !== undefined) {
     filteredAlerts = filteredAlerts.filter(a => a.daysToEta <= filters.maxDaysToEta!);
   }
-  if (filters?.riskReason) {
-    filteredAlerts = filteredAlerts.filter(a => a.riskReasons.includes(filters.riskReason!));
+  if (filters?.riskFactor) {
+    // Check both riskReasons array and riskFactorPoints array
+    filteredAlerts = filteredAlerts.filter(a => {
+      // Check if it's in riskReasons (for RiskReason types)
+      if (a.riskReasons.includes(filters.riskFactor as any)) {
+        return true;
+      }
+      // Check if it's in riskFactorPoints (for all factor types including contextual ones)
+      if (a.riskFactorPoints?.some(fp => {
+        // Normalize: BaseScore and DelayInSteps both map to same thing
+        const factorKey = fp.factor === 'BaseScore' ? 'DelayInSteps' : fp.factor;
+        return factorKey === filters.riskFactor || fp.factor === filters.riskFactor;
+      })) {
+        return true;
+      }
+      return false;
+    });
   }
   if (filters?.acknowledged !== undefined) {
     filteredAlerts = filteredAlerts.filter(a => a.acknowledged === filters.acknowledged);

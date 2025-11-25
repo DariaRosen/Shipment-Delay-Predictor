@@ -20,7 +20,7 @@ export const apiClient = {
     if (filters?.destination) params.append('destination', filters.destination)
     if (filters?.owner) params.append('owner', filters.owner)
     if (filters?.serviceLevel) params.append('serviceLevel', filters.serviceLevel)
-    if (filters?.riskReason) params.append('riskReason', filters.riskReason)
+    if (filters?.riskFactor) params.append('riskFactor', filters.riskFactor)
     if (filters?.minRiskScore !== undefined) params.append('minRiskScore', String(filters.minRiskScore))
     if (filters?.maxRiskScore !== undefined) params.append('maxRiskScore', String(filters.maxRiskScore))
     if (filters?.minDaysToEta !== undefined) params.append('minDaysToEta', String(filters.minDaysToEta))

@@ -14,7 +14,7 @@ export async function GET(request: NextRequest) {
       destination: searchParams.get('destination') || undefined,
       owner: searchParams.get('owner') || undefined,
       serviceLevel: searchParams.get('serviceLevel') || undefined,
-      riskReason: searchParams.get('riskReason') as any,
+      riskFactor: searchParams.get('riskFactor') as any,
       minRiskScore: searchParams.get('minRiskScore') ? parseInt(searchParams.get('minRiskScore')!, 10) : undefined,
       maxRiskScore: searchParams.get('maxRiskScore') ? parseInt(searchParams.get('maxRiskScore')!, 10) : undefined,
       minDaysToEta: searchParams.get('minDaysToEta') ? parseInt(searchParams.get('minDaysToEta')!, 10) : undefined,

@@ -71,6 +71,8 @@ export interface AlertsResponse {
   }
 }
 
+export type RiskFactorFilter = RiskReason | 'BaseScore' | 'LongDistance' | 'International' | 'PeakSeason' | 'WeekendDelay' | 'ExpressRisk' | 'DelayInSteps'
+
 export interface AlertsFilters {
   severity?: Severity
   mode?: Mode
@@ -80,7 +82,7 @@ export interface AlertsFilters {
   destination?: string
   owner?: string
   serviceLevel?: string
-  riskReason?: RiskReason
+  riskFactor?: RiskFactorFilter // Changed from riskReason to riskFactor, includes all factors
   minRiskScore?: number
   maxRiskScore?: number
   minDaysToEta?: number

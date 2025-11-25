@@ -12,7 +12,7 @@ import {
 import { Label } from '@/components/ui/label'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import { AlertsFilters as FiltersType, Severity, Mode, RiskReason } from '@/types/alerts'
+import { AlertsFilters as FiltersType, Severity, Mode, RiskReason, RiskFactorFilter } from '@/types/alerts'
 import { getRiskFactorExplanation } from '@/lib/risk-factor-explanations'
 import { X, Search, Filter, ChevronDown, ChevronUp } from 'lucide-react'
 
@@ -41,6 +41,42 @@ const RISK_REASONS: RiskReason[] = [
   'DocsMissing',
   'Lost',
 ]
+
+// All risk factors including contextual ones
+const ALL_RISK_FACTORS: RiskFactorFilter[] = [
+  ...RISK_REASONS,
+  'DelayInSteps',
+  'LongDistance',
+  'International',
+  'PeakSeason',
+  'WeekendDelay',
+  'ExpressRisk',
+]
+
+const getRiskFactorLabel = (factor: RiskFactorFilter): string => {
+  // Handle contextual factors
+  if (factor === 'DelayInSteps' || factor === 'BaseScore') {
+    return 'Delay in steps'
+  }
+  if (factor === 'LongDistance') {
+    return 'Long Distance'
+  }
+  if (factor === 'International') {
+    return 'International Shipment'
+  }
+  if (factor === 'PeakSeason') {
+    return 'Peak Season (Nov/Dec)'
+  }
+  if (factor === 'WeekendDelay') {
+    return 'Weekend Processing Delay'
+  }
+  if (factor === 'ExpressRisk') {
+    return 'Express Service Risk'
+  }
+  // For RiskReason types, get from explanation
+  const explanation = getRiskFactorExplanation(factor as RiskReason)
+  return explanation.name
+}
 
 export const AlertsFilters = ({ filters, onFiltersChange, carriers, serviceLevels, owners }: AlertsFiltersProps) => {
   const [searchHistory, setSearchHistory] = useState<string[]>([])
@@ -305,12 +341,24 @@ export const AlertsFilters = ({ filters, onFiltersChange, carriers, serviceLevel
                 </button>
               </Badge>
             )}
+            {filters.riskFactor && (
+              <Badge variant="outline" className="gap-1">
+                Factor: {getRiskFactorLabel(filters.riskFactor)}
+                <button
+                  type="button"
+                  onClick={() => removeFilter('riskFactor')}
+                  className="ml-1 hover:text-destructive"
+                >
+                  <X className="h-3 w-3" />
+                </button>
+              </Badge>
+            )}
             {(filters.origin || filters.destination || filters.owner || filters.serviceLevel ||
-              filters.riskReason || filters.minRiskScore !== undefined || filters.maxRiskScore !== undefined ||
+              filters.minRiskScore !== undefined || filters.maxRiskScore !== undefined ||
               filters.minDaysToEta !== undefined || filters.maxDaysToEta !== undefined ||
               filters.acknowledged !== undefined) && (
               <Badge variant="outline" className="gap-1">
-                +{activeFilterCount - (filters.severity ? 1 : 0) - (filters.mode ? 1 : 0) - (filters.carrier ? 1 : 0) - (filters.search ? 1 : 0)} more
+                +{activeFilterCount - (filters.severity ? 1 : 0) - (filters.mode ? 1 : 0) - (filters.carrier ? 1 : 0) - (filters.search ? 1 : 0) - (filters.riskFactor ? 1 : 0)} more
               </Badge>
             )}
           </div>
@@ -438,32 +486,29 @@ export const AlertsFilters = ({ filters, onFiltersChange, carriers, serviceLevel
                 )}
               </div>
 
-              {/* Risk Reason */}
+              {/* Risk Factor */}
               <div className="space-y-2">
-                <Label htmlFor="riskReason">Risk Reason</Label>
+                <Label htmlFor="riskFactor">Risk Factor</Label>
                 {isMounted ? (
                   <Select
-                    value={filters.riskReason || 'all'}
+                    value={filters.riskFactor || 'all'}
                     onValueChange={(value) =>
                       onFiltersChange({
                         ...filters,
-                        riskReason: value === 'all' ? undefined : (value as RiskReason),
+                        riskFactor: value === 'all' ? undefined : (value as RiskFactorFilter),
                       })
                     }
                   >
-                    <SelectTrigger id="riskReason">
-                      <SelectValue placeholder="All risk reasons" />
+                    <SelectTrigger id="riskFactor">
+                      <SelectValue placeholder="All risk factors" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="all">All Risk Reasons</SelectItem>
-                      {RISK_REASONS.map((reason) => {
-                        const explanation = getRiskFactorExplanation(reason)
-                        return (
-                          <SelectItem key={reason} value={reason}>
-                            {explanation.name}
-                          </SelectItem>
-                        )
-                      })}
+                      <SelectItem value="all">All Risk Factors</SelectItem>
+                      {ALL_RISK_FACTORS.map((factor) => (
+                        <SelectItem key={factor} value={factor}>
+                          {getRiskFactorLabel(factor)}
+                        </SelectItem>
+                      ))}
                     </SelectContent>
                   </Select>
                 ) : (
