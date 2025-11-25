@@ -53,31 +53,49 @@ export const AlertsSummary = ({ alerts }: AlertsSummaryProps) => {
       {
         label: string
         description?: string
-        count: number
+        shipmentIds: Set<string>
       }
     > = {}
 
-    const increment = (key: string, label: string, description?: string) => {
+    const addShipment = (key: string, label: string, description: string | undefined, shipmentId: string) => {
       if (!counts[key]) {
-        counts[key] = { label, description, count: 0 }
+        counts[key] = { label, description, shipmentIds: new Set() }
       }
-      counts[key].count += 1
+      counts[key].shipmentIds.add(shipmentId)
     }
 
     alerts.forEach((alert) => {
+      const shipmentId = alert.shipmentId
+      const seenFactors = new Set<string>()
+
+      // Process riskReasons first
       alert.riskReasons.forEach((reason) => {
-        const explanation = getRiskFactorExplanation(reason)
-        increment(reason, explanation.name, explanation.description)
+        if (!seenFactors.has(reason)) {
+          seenFactors.add(reason)
+          const explanation = getRiskFactorExplanation(reason)
+          addShipment(reason, explanation.name, explanation.description, shipmentId)
+        }
       })
 
+      // Process riskFactorPoints, avoiding duplicates
       alert.riskFactorPoints?.forEach((factor) => {
+        // Normalize: BaseScore and DelayInSteps both map to "Delay in steps"
+        const factorKey = factor.factor === 'BaseScore' ? 'DelayInSteps' : factor.factor
+
+        // Skip if we already counted this factor from riskReasons
+        if (seenFactors.has(factorKey)) {
+          return
+        }
+
+        seenFactors.add(factorKey)
         const meta = additionalFactorMeta[factor.factor]
         const fallbackLabel =
           formatRiskReason(factor.factor as RiskReason) || factor.factor.replace(/([A-Z])/g, ' $1').trim()
-        increment(
-          factor.factor,
+        addShipment(
+          factorKey,
           meta?.label ?? fallbackLabel,
           factor.description ?? meta?.description ?? 'Driver for the aggregated risk score.',
+          shipmentId,
         )
       })
     })
@@ -86,7 +104,7 @@ export const AlertsSummary = ({ alerts }: AlertsSummaryProps) => {
       .map(([reasonKey, value]) => ({
         reasonKey,
         label: value.label,
-        count: value.count,
+        count: value.shipmentIds.size, // Count unique shipments, not occurrences
         description: value.description,
       }))
       .sort((a, b) => b.count - a.count)
