@@ -11,19 +11,30 @@ interface AlertsSummaryProps {
 }
 
 export const AlertsSummary = ({ alerts }: AlertsSummaryProps) => {
-  const severityData = useMemo(() => {
-    const counts = alerts.reduce(
+  const severityCounts = useMemo(() => {
+    return alerts.reduce(
       (acc, alert) => {
         acc[alert.severity] = (acc[alert.severity] || 0) + 1
         return acc
       },
-      {} as Record<Severity, number>
+      {
+        Critical: 0,
+        High: 0,
+        Medium: 0,
+        Low: 0,
+        Minimal: 0,
+      } as Record<Severity, number>,
     )
-    return Object.entries(counts).map(([severity, count]) => ({
-      severity: severity as Severity,
-      count,
-    }))
   }, [alerts])
+
+  const severityData = useMemo(
+    () =>
+      Object.entries(severityCounts).map(([severity, count]) => ({
+        severity: severity as Severity,
+        count,
+      })),
+    [severityCounts],
+  )
 
   const riskCausesData = useMemo(() => {
     const counts: Record<string, number> = {}
@@ -38,8 +49,7 @@ export const AlertsSummary = ({ alerts }: AlertsSummaryProps) => {
       .slice(0, 5)
   }, [alerts])
 
-  const criticalRiskCount = alerts.filter((a) => a.severity === 'Critical').length
-  const highRiskCount = alerts.filter((a) => a.severity === 'High').length
+  const severityOrder: Severity[] = ['Critical', 'High', 'Medium', 'Low', 'Minimal']
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-6">
@@ -49,9 +59,19 @@ export const AlertsSummary = ({ alerts }: AlertsSummaryProps) => {
         </CardHeader>
         <CardContent>
           <div className="text-4xl font-bold text-teal-700">{alerts.length}</div>
-          <p className="text-sm text-teal-600 mt-2">
-            {criticalRiskCount} critical, {highRiskCount} high priority alerts
-          </p>
+          <div className="text-sm text-teal-700 mt-3 space-y-1">
+            {severityOrder.map((severity) => {
+              const count = severityCounts[severity] ?? 0
+              return (
+                <div key={severity} className="flex items-center gap-2">
+                  <span className="font-semibold">{severity}:</span>
+                  <span>
+                    {count} shipment{count === 1 ? '' : 's'}
+                  </span>
+                </div>
+              )
+            })}
+          </div>
         </CardContent>
       </Card>
 
