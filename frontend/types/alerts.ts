@@ -76,5 +76,15 @@ export interface AlertsFilters {
   mode?: Mode
   carrier?: string
   search?: string
+  origin?: string
+  destination?: string
+  owner?: string
+  serviceLevel?: string
+  riskReason?: RiskReason
+  minRiskScore?: number
+  maxRiskScore?: number
+  minDaysToEta?: number
+  maxDaysToEta?: number
+  acknowledged?: boolean
 }
 

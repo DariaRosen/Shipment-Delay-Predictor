@@ -51,17 +51,34 @@ export async function fetchAndCalculateAlerts(filters?: AlertsFilters & { shipme
   if (filters?.shipmentId) {
     // For detail route, search by shipment ID
     query = query.or(`shipment_id.ilike.%${filters.shipmentId}%`);
-  } else if (filters?.mode) {
-    query = query.eq('mode', filters.mode);
-  }
-  if (filters?.carrier) {
-    query = query.ilike('carrier', `%${filters.carrier}%`);
-  }
-  if (filters?.search) {
-    const term = filters.search.toLowerCase();
-    query = query.or(
-      `shipment_id.ilike.%${term}%,origin_city.ilike.%${term}%,dest_city.ilike.%${term}%`,
-    );
+  } else {
+    // General search across multiple fields
+    if (filters?.search) {
+      const term = filters.search.toLowerCase();
+      query = query.or(
+        `shipment_id.ilike.%${term}%,origin_city.ilike.%${term}%,dest_city.ilike.%${term}%,owner.ilike.%${term}%,current_status.ilike.%${term}%`,
+      );
+    }
+    
+    // Specific field filters
+    if (filters?.origin) {
+      query = query.ilike('origin_city', `%${filters.origin}%`);
+    }
+    if (filters?.destination) {
+      query = query.ilike('dest_city', `%${filters.destination}%`);
+    }
+    if (filters?.owner) {
+      query = query.ilike('owner', `%${filters.owner}%`);
+    }
+    if (filters?.mode) {
+      query = query.eq('mode', filters.mode);
+    }
+    if (filters?.carrier) {
+      query = query.ilike('carrier', `%${filters.carrier}%`);
+    }
+    if (filters?.serviceLevel) {
+      query = query.ilike('service_level', `%${filters.serviceLevel}%`);
+    }
   }
 
   const { data: shipments, error } = await query.order('expected_delivery', {
@@ -188,6 +205,28 @@ export async function fetchAndCalculateAlerts(filters?: AlertsFilters & { shipme
     }
   }
 
-  return alerts;
+  // Apply post-calculation filters (for calculated fields)
+  let filteredAlerts = alerts;
+  
+  if (filters?.minRiskScore !== undefined) {
+    filteredAlerts = filteredAlerts.filter(a => a.riskScore >= filters.minRiskScore!);
+  }
+  if (filters?.maxRiskScore !== undefined) {
+    filteredAlerts = filteredAlerts.filter(a => a.riskScore <= filters.maxRiskScore!);
+  }
+  if (filters?.minDaysToEta !== undefined) {
+    filteredAlerts = filteredAlerts.filter(a => a.daysToEta >= filters.minDaysToEta!);
+  }
+  if (filters?.maxDaysToEta !== undefined) {
+    filteredAlerts = filteredAlerts.filter(a => a.daysToEta <= filters.maxDaysToEta!);
+  }
+  if (filters?.riskReason) {
+    filteredAlerts = filteredAlerts.filter(a => a.riskReasons.includes(filters.riskReason!));
+  }
+  if (filters?.acknowledged !== undefined) {
+    filteredAlerts = filteredAlerts.filter(a => a.acknowledged === filters.acknowledged);
+  }
+
+  return filteredAlerts;
 }
 

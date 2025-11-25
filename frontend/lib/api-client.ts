@@ -16,6 +16,16 @@ export const apiClient = {
     if (filters?.mode) params.append('mode', filters.mode)
     if (filters?.carrier) params.append('carrier', filters.carrier)
     if (filters?.search) params.append('search', filters.search)
+    if (filters?.origin) params.append('origin', filters.origin)
+    if (filters?.destination) params.append('destination', filters.destination)
+    if (filters?.owner) params.append('owner', filters.owner)
+    if (filters?.serviceLevel) params.append('serviceLevel', filters.serviceLevel)
+    if (filters?.riskReason) params.append('riskReason', filters.riskReason)
+    if (filters?.minRiskScore !== undefined) params.append('minRiskScore', String(filters.minRiskScore))
+    if (filters?.maxRiskScore !== undefined) params.append('maxRiskScore', String(filters.maxRiskScore))
+    if (filters?.minDaysToEta !== undefined) params.append('minDaysToEta', String(filters.minDaysToEta))
+    if (filters?.maxDaysToEta !== undefined) params.append('maxDaysToEta', String(filters.maxDaysToEta))
+    if (filters?.acknowledged !== undefined) params.append('acknowledged', String(filters.acknowledged))
 
     const url = `${API_BASE_URL}/alerts?${params.toString()}`
     console.log('Fetching alerts from:', url)

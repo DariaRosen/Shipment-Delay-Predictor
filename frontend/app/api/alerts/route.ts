@@ -10,6 +10,16 @@ export async function GET(request: NextRequest) {
       mode: searchParams.get('mode') as any,
       carrier: searchParams.get('carrier') || undefined,
       search: searchParams.get('search') || undefined,
+      origin: searchParams.get('origin') || undefined,
+      destination: searchParams.get('destination') || undefined,
+      owner: searchParams.get('owner') || undefined,
+      serviceLevel: searchParams.get('serviceLevel') || undefined,
+      riskReason: searchParams.get('riskReason') as any,
+      minRiskScore: searchParams.get('minRiskScore') ? parseInt(searchParams.get('minRiskScore')!, 10) : undefined,
+      maxRiskScore: searchParams.get('maxRiskScore') ? parseInt(searchParams.get('maxRiskScore')!, 10) : undefined,
+      minDaysToEta: searchParams.get('minDaysToEta') ? parseInt(searchParams.get('minDaysToEta')!, 10) : undefined,
+      maxDaysToEta: searchParams.get('maxDaysToEta') ? parseInt(searchParams.get('maxDaysToEta')!, 10) : undefined,
+      acknowledged: searchParams.get('acknowledged') === 'true' ? true : searchParams.get('acknowledged') === 'false' ? false : undefined,
     };
 
     // Use SHARED logic function - same as detail route

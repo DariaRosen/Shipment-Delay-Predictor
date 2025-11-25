@@ -21,6 +21,14 @@ export function AlertsDashboardPage() {
     () => Array.from(new Set(alerts.map((a) => a.carrierName))).sort(),
     [alerts]
   )
+  const serviceLevels = useMemo(
+    () => Array.from(new Set(alerts.map((a) => a.serviceLevel))).sort(),
+    [alerts]
+  )
+  const owners = useMemo(
+    () => Array.from(new Set(alerts.map((a) => a.owner))).sort(),
+    [alerts]
+  )
 
   const handleRowClick = (shipmentId: string) => {
     router.push(`/shipment/${shipmentId}`)
@@ -72,7 +80,13 @@ export function AlertsDashboardPage() {
 
       <AlertsSummary alerts={alerts} />
 
-      <AlertsFilters filters={filters} onFiltersChange={setFilters} carriers={carriers} />
+      <AlertsFilters 
+        filters={filters} 
+        onFiltersChange={setFilters} 
+        carriers={carriers}
+        serviceLevels={serviceLevels}
+        owners={owners}
+      />
 
         {isLoading ? (
           <Card className="border-teal-200 bg-white/95">

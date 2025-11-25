@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { Input } from '@/components/ui/input'
 import {
   Select,
@@ -10,21 +10,43 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { Label } from '@/components/ui/label'
-import { AlertsFilters as FiltersType, Severity, Mode } from '@/types/alerts'
+import { Button } from '@/components/ui/button'
+import { Badge } from '@/components/ui/badge'
+import { AlertsFilters as FiltersType, Severity, Mode, RiskReason } from '@/types/alerts'
+import { getRiskFactorExplanation } from '@/lib/risk-factor-explanations'
+import { X, Search, Filter, ChevronDown, ChevronUp } from 'lucide-react'
 
 interface AlertsFiltersProps {
   filters: FiltersType
   onFiltersChange: (filters: FiltersType) => void
   carriers: string[]
+  serviceLevels: string[]
+  owners: string[]
 }
 
 const SEARCH_HISTORY_KEY = 'shipment-search-history'
 const MAX_HISTORY_ITEMS = 10
 
-export const AlertsFilters = ({ filters, onFiltersChange, carriers }: AlertsFiltersProps) => {
+const RISK_REASONS: RiskReason[] = [
+  'StaleStatus',
+  'PortCongestion',
+  'CustomsHold',
+  'MissedDeparture',
+  'Delayed',
+  'LongDwell',
+  'NoPickup',
+  'HubCongestion',
+  'WeatherAlert',
+  'CapacityShortage',
+  'DocsMissing',
+  'Lost',
+]
+
+export const AlertsFilters = ({ filters, onFiltersChange, carriers, serviceLevels, owners }: AlertsFiltersProps) => {
   const [searchHistory, setSearchHistory] = useState<string[]>([])
   const [showHistory, setShowHistory] = useState(false)
   const [isMounted, setIsMounted] = useState(false)
+  const [showAdvanced, setShowAdvanced] = useState(false)
 
   useEffect(() => {
     setIsMounted(true)
@@ -60,141 +82,507 @@ export const AlertsFilters = ({ filters, onFiltersChange, carriers }: AlertsFilt
     setShowHistory(false)
   }
 
+  const clearFilters = () => {
+    onFiltersChange({})
+  }
+
+  const removeFilter = (key: keyof FiltersType) => {
+    const newFilters = { ...filters }
+    delete newFilters[key]
+    onFiltersChange(newFilters)
+  }
+
+  const activeFilterCount = useMemo(() => {
+    return Object.keys(filters).filter(key => {
+      const value = filters[key as keyof FiltersType]
+      return value !== undefined && value !== null && value !== ''
+    }).length
+  }, [filters])
+
+  const hasActiveFilters = activeFilterCount > 0
+
   return (
-    <div className="grid grid-cols-1 md:grid-cols-4 gap-4 p-4 border-teal-200 rounded-lg bg-white/95 shadow-sm">
-      <div className="space-y-2 relative">
-        <Label htmlFor="search">Search</Label>
-        <div className="relative">
-          <Input
-            id="search"
-            name="shipment-search"
-            type="text"
-            autoComplete="off"
-            placeholder="Shipment ID..."
-            value={filters.search || ''}
-            onChange={(e) => handleSearchChange(e.target.value)}
-            onFocus={() => {
-              if (!filters.search && searchHistory.length > 0) {
-                setShowHistory(true)
+    <div className="space-y-4">
+      {/* Main Filters Row */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 p-4 border-teal-200 rounded-lg bg-white/95 shadow-sm">
+        {/* Enhanced Search */}
+        <div className="space-y-2 relative">
+          <Label htmlFor="search" className="flex items-center gap-2">
+            <Search className="h-4 w-4" />
+            Search
+          </Label>
+          <div className="relative">
+            <Input
+              id="search"
+              name="shipment-search"
+              type="text"
+              autoComplete="off"
+              placeholder="Shipment ID, origin, destination, owner..."
+              value={filters.search || ''}
+              onChange={(e) => handleSearchChange(e.target.value)}
+              onFocus={() => {
+                if (!filters.search && searchHistory.length > 0) {
+                  setShowHistory(true)
+                }
+              }}
+              onBlur={() => {
+                setTimeout(() => setShowHistory(false), 200)
+              }}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  handleSearchSubmit(e.currentTarget.value)
+                }
+              }}
+            />
+            {showHistory && searchHistory.length > 0 && (
+              <div className="absolute z-50 w-full mt-1 bg-white border border-teal-200 rounded-md shadow-lg max-h-60 overflow-auto">
+                {searchHistory.map((item, index) => (
+                  <button
+                    key={index}
+                    type="button"
+                    className="w-full text-left px-3 py-2 hover:bg-teal-50 text-sm text-slate-700"
+                    onClick={() => handleHistorySelect(item)}
+                  >
+                    {item}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Risk Score Filter */}
+        <div className="space-y-2">
+          <Label htmlFor="severity">Risk Score</Label>
+          {isMounted ? (
+            <Select
+              value={filters.severity || 'all'}
+              onValueChange={(value) =>
+                onFiltersChange({
+                  ...filters,
+                  severity: value === 'all' ? undefined : (value as Severity),
+                })
               }
-            }}
-            onBlur={() => {
-              setTimeout(() => setShowHistory(false), 200)
-            }}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter') {
-                handleSearchSubmit(e.currentTarget.value)
+            >
+              <SelectTrigger id="severity">
+                <SelectValue placeholder="All risk scores" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Risk Scores</SelectItem>
+                <SelectItem value="Critical">Critical</SelectItem>
+                <SelectItem value="High">High</SelectItem>
+                <SelectItem value="Medium">Medium</SelectItem>
+                <SelectItem value="Low">Low</SelectItem>
+                <SelectItem value="Minimal">Minimal</SelectItem>
+              </SelectContent>
+            </Select>
+          ) : (
+            <div className="h-9 w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm flex items-center text-muted-foreground">
+              Loading...
+            </div>
+          )}
+        </div>
+
+        {/* Mode Filter */}
+        <div className="space-y-2">
+          <Label htmlFor="mode">Mode</Label>
+          {isMounted ? (
+            <Select
+              value={filters.mode || 'all'}
+              onValueChange={(value) =>
+                onFiltersChange({
+                  ...filters,
+                  mode: value === 'all' ? undefined : (value as Mode),
+                })
               }
-            }}
-          />
-          {showHistory && searchHistory.length > 0 && (
-            <div className="absolute z-50 w-full mt-1 bg-white border border-teal-200 rounded-md shadow-lg max-h-60 overflow-auto">
-              {searchHistory.map((item, index) => (
-                <button
-                  key={index}
-                  type="button"
-                  className="w-full text-left px-3 py-2 hover:bg-teal-50 text-sm text-slate-700"
-                  onClick={() => handleHistorySelect(item)}
-                >
-                  {item}
-                </button>
-              ))}
+            >
+              <SelectTrigger id="mode">
+                <SelectValue placeholder="All modes" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Modes</SelectItem>
+                <SelectItem value="Air">Air</SelectItem>
+                <SelectItem value="Sea">Sea</SelectItem>
+                <SelectItem value="Road">Road</SelectItem>
+              </SelectContent>
+            </Select>
+          ) : (
+            <div className="h-9 w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm flex items-center text-muted-foreground">
+              Loading...
+            </div>
+          )}
+        </div>
+
+        {/* Carrier Filter */}
+        <div className="space-y-2">
+          <Label htmlFor="carrier">Carrier</Label>
+          {isMounted ? (
+            <Select
+              value={filters.carrier || 'all'}
+              onValueChange={(value) =>
+                onFiltersChange({
+                  ...filters,
+                  carrier: value === 'all' ? undefined : value,
+                })
+              }
+            >
+              <SelectTrigger id="carrier">
+                <SelectValue placeholder="All carriers" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Carriers</SelectItem>
+                {carriers.map((carrier) => (
+                  <SelectItem key={carrier} value={carrier}>
+                    {carrier}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          ) : (
+            <div className="h-9 w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm flex items-center text-muted-foreground">
+              Loading...
             </div>
           )}
         </div>
       </div>
 
-      <div className="space-y-2">
-        <Label htmlFor="severity">Risk Score</Label>
-        {isMounted ? (
-          <Select
-            value={filters.severity || 'all'}
-            onValueChange={(value) =>
-              onFiltersChange({
-                ...filters,
-                severity: value === 'all' ? undefined : (value as Severity),
-              })
-            }
-          >
-            <SelectTrigger id="severity">
-              <SelectValue placeholder="All risk scores" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Risk Scores</SelectItem>
-              <SelectItem value="Critical">Critical</SelectItem>
-              <SelectItem value="High">High</SelectItem>
-              <SelectItem value="Medium">Medium</SelectItem>
-              <SelectItem value="Low">Low</SelectItem>
-              <SelectItem value="Minimal">Minimal</SelectItem>
-            </SelectContent>
-          </Select>
-        ) : (
-          <div className="h-9 w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm flex items-center text-muted-foreground">
-            Loading...
+      {/* Active Filters & Clear Button */}
+      {hasActiveFilters && (
+        <div className="flex items-center gap-2 flex-wrap p-2">
+          <div className="flex items-center gap-2 text-sm text-teal-700">
+            <Filter className="h-4 w-4" />
+            <span>Active filters:</span>
+            <Badge variant="secondary" className="bg-teal-100 text-teal-800">
+              {activeFilterCount}
+            </Badge>
           </div>
-        )}
-      </div>
-
-      <div className="space-y-2">
-        <Label htmlFor="mode">Mode</Label>
-        {isMounted ? (
-          <Select
-            value={filters.mode || 'all'}
-            onValueChange={(value) =>
-              onFiltersChange({
-                ...filters,
-                mode: value === 'all' ? undefined : (value as Mode),
-              })
-            }
-          >
-            <SelectTrigger id="mode">
-              <SelectValue placeholder="All modes" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Modes</SelectItem>
-              <SelectItem value="Air">Air</SelectItem>
-              <SelectItem value="Sea">Sea</SelectItem>
-              <SelectItem value="Road">Road</SelectItem>
-            </SelectContent>
-          </Select>
-        ) : (
-          <div className="h-9 w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm flex items-center text-muted-foreground">
-            Loading...
+          <div className="flex items-center gap-2 flex-wrap">
+            {filters.severity && (
+              <Badge variant="outline" className="gap-1">
+                Risk: {filters.severity}
+                <button
+                  type="button"
+                  onClick={() => removeFilter('severity')}
+                  className="ml-1 hover:text-destructive"
+                >
+                  <X className="h-3 w-3" />
+                </button>
+              </Badge>
+            )}
+            {filters.mode && (
+              <Badge variant="outline" className="gap-1">
+                Mode: {filters.mode}
+                <button
+                  type="button"
+                  onClick={() => removeFilter('mode')}
+                  className="ml-1 hover:text-destructive"
+                >
+                  <X className="h-3 w-3" />
+                </button>
+              </Badge>
+            )}
+            {filters.carrier && (
+              <Badge variant="outline" className="gap-1">
+                Carrier: {filters.carrier}
+                <button
+                  type="button"
+                  onClick={() => removeFilter('carrier')}
+                  className="ml-1 hover:text-destructive"
+                >
+                  <X className="h-3 w-3" />
+                </button>
+              </Badge>
+            )}
+            {filters.search && (
+              <Badge variant="outline" className="gap-1">
+                Search: {filters.search}
+                <button
+                  type="button"
+                  onClick={() => removeFilter('search')}
+                  className="ml-1 hover:text-destructive"
+                >
+                  <X className="h-3 w-3" />
+                </button>
+              </Badge>
+            )}
+            {(filters.origin || filters.destination || filters.owner || filters.serviceLevel ||
+              filters.riskReason || filters.minRiskScore !== undefined || filters.maxRiskScore !== undefined ||
+              filters.minDaysToEta !== undefined || filters.maxDaysToEta !== undefined ||
+              filters.acknowledged !== undefined) && (
+              <Badge variant="outline" className="gap-1">
+                +{activeFilterCount - (filters.severity ? 1 : 0) - (filters.mode ? 1 : 0) - (filters.carrier ? 1 : 0) - (filters.search ? 1 : 0)} more
+              </Badge>
+            )}
           </div>
-        )}
-      </div>
-
-      <div className="space-y-2">
-        <Label htmlFor="carrier">Carrier</Label>
-        {isMounted ? (
-          <Select
-            value={filters.carrier || 'all'}
-            onValueChange={(value) =>
-              onFiltersChange({
-                ...filters,
-                carrier: value === 'all' ? undefined : value,
-              })
-            }
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={clearFilters}
+            className="ml-auto"
           >
-            <SelectTrigger id="carrier">
-              <SelectValue placeholder="All carriers" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Carriers</SelectItem>
-              {carriers.map((carrier) => (
-                <SelectItem key={carrier} value={carrier}>
-                  {carrier}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        ) : (
-          <div className="h-9 w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm flex items-center text-muted-foreground">
-            Loading...
+            Clear All
+          </Button>
+        </div>
+      )}
+
+      {/* Advanced Filters (Collapsible) */}
+      <div className="border-teal-200 rounded-lg bg-white/95 shadow-sm">
+        <button
+          type="button"
+          onClick={() => setShowAdvanced(!showAdvanced)}
+          className="w-full flex items-center justify-between p-4 hover:bg-teal-50 transition-colors"
+        >
+          <div className="flex items-center gap-2">
+            <Filter className="h-4 w-4" />
+            <span className="font-medium text-teal-900">Advanced Filters</span>
+          </div>
+          {showAdvanced ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+        </button>
+
+        {showAdvanced && (
+          <div className="p-4 pt-0 space-y-4 border-t border-teal-100">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {/* Origin */}
+              <div className="space-y-2">
+                <Label htmlFor="origin">Origin City</Label>
+                <Input
+                  id="origin"
+                  placeholder="Filter by origin..."
+                  value={filters.origin || ''}
+                  onChange={(e) =>
+                    onFiltersChange({
+                      ...filters,
+                      origin: e.target.value || undefined,
+                    })
+                  }
+                />
+              </div>
+
+              {/* Destination */}
+              <div className="space-y-2">
+                <Label htmlFor="destination">Destination City</Label>
+                <Input
+                  id="destination"
+                  placeholder="Filter by destination..."
+                  value={filters.destination || ''}
+                  onChange={(e) =>
+                    onFiltersChange({
+                      ...filters,
+                      destination: e.target.value || undefined,
+                    })
+                  }
+                />
+              </div>
+
+              {/* Owner */}
+              <div className="space-y-2">
+                <Label htmlFor="owner">Owner</Label>
+                {isMounted ? (
+                  <Select
+                    value={filters.owner || 'all'}
+                    onValueChange={(value) =>
+                      onFiltersChange({
+                        ...filters,
+                        owner: value === 'all' ? undefined : value,
+                      })
+                    }
+                  >
+                    <SelectTrigger id="owner">
+                      <SelectValue placeholder="All owners" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Owners</SelectItem>
+                      {owners.map((owner) => (
+                        <SelectItem key={owner} value={owner}>
+                          {owner}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                ) : (
+                  <div className="h-9 w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm flex items-center text-muted-foreground">
+                    Loading...
+                  </div>
+                )}
+              </div>
+
+              {/* Service Level */}
+              <div className="space-y-2">
+                <Label htmlFor="serviceLevel">Service Level</Label>
+                {isMounted ? (
+                  <Select
+                    value={filters.serviceLevel || 'all'}
+                    onValueChange={(value) =>
+                      onFiltersChange({
+                        ...filters,
+                        serviceLevel: value === 'all' ? undefined : value,
+                      })
+                    }
+                  >
+                    <SelectTrigger id="serviceLevel">
+                      <SelectValue placeholder="All service levels" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Service Levels</SelectItem>
+                      {serviceLevels.map((level) => (
+                        <SelectItem key={level} value={level}>
+                          {level}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                ) : (
+                  <div className="h-9 w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm flex items-center text-muted-foreground">
+                    Loading...
+                  </div>
+                )}
+              </div>
+
+              {/* Risk Reason */}
+              <div className="space-y-2">
+                <Label htmlFor="riskReason">Risk Reason</Label>
+                {isMounted ? (
+                  <Select
+                    value={filters.riskReason || 'all'}
+                    onValueChange={(value) =>
+                      onFiltersChange({
+                        ...filters,
+                        riskReason: value === 'all' ? undefined : (value as RiskReason),
+                      })
+                    }
+                  >
+                    <SelectTrigger id="riskReason">
+                      <SelectValue placeholder="All risk reasons" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Risk Reasons</SelectItem>
+                      {RISK_REASONS.map((reason) => {
+                        const explanation = getRiskFactorExplanation(reason)
+                        return (
+                          <SelectItem key={reason} value={reason}>
+                            {explanation.name}
+                          </SelectItem>
+                        )
+                      })}
+                    </SelectContent>
+                  </Select>
+                ) : (
+                  <div className="h-9 w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm flex items-center text-muted-foreground">
+                    Loading...
+                  </div>
+                )}
+              </div>
+
+              {/* Acknowledged Status */}
+              <div className="space-y-2">
+                <Label htmlFor="acknowledged">Acknowledged</Label>
+                {isMounted ? (
+                  <Select
+                    value={
+                      filters.acknowledged === undefined
+                        ? 'all'
+                        : filters.acknowledged
+                        ? 'true'
+                        : 'false'
+                    }
+                    onValueChange={(value) =>
+                      onFiltersChange({
+                        ...filters,
+                        acknowledged: value === 'all' ? undefined : value === 'true',
+                      })
+                    }
+                  >
+                    <SelectTrigger id="acknowledged">
+                      <SelectValue placeholder="All" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All</SelectItem>
+                      <SelectItem value="true">Acknowledged</SelectItem>
+                      <SelectItem value="false">Not Acknowledged</SelectItem>
+                    </SelectContent>
+                  </Select>
+                ) : (
+                  <div className="h-9 w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm flex items-center text-muted-foreground">
+                    Loading...
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Risk Score Range */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="minRiskScore">Min Risk Score</Label>
+                <Input
+                  id="minRiskScore"
+                  type="number"
+                  min="0"
+                  max="100"
+                  placeholder="0"
+                  value={filters.minRiskScore ?? ''}
+                  onChange={(e) =>
+                    onFiltersChange({
+                      ...filters,
+                      minRiskScore: e.target.value ? parseInt(e.target.value, 10) : undefined,
+                    })
+                  }
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="maxRiskScore">Max Risk Score</Label>
+                <Input
+                  id="maxRiskScore"
+                  type="number"
+                  min="0"
+                  max="100"
+                  placeholder="100"
+                  value={filters.maxRiskScore ?? ''}
+                  onChange={(e) =>
+                    onFiltersChange({
+                      ...filters,
+                      maxRiskScore: e.target.value ? parseInt(e.target.value, 10) : undefined,
+                    })
+                  }
+                />
+              </div>
+            </div>
+
+            {/* Days to ETA Range */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="minDaysToEta">Min Days to ETA</Label>
+                <Input
+                  id="minDaysToEta"
+                  type="number"
+                  placeholder="Any"
+                  value={filters.minDaysToEta ?? ''}
+                  onChange={(e) =>
+                    onFiltersChange({
+                      ...filters,
+                      minDaysToEta: e.target.value ? parseInt(e.target.value, 10) : undefined,
+                    })
+                  }
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="maxDaysToEta">Max Days to ETA</Label>
+                <Input
+                  id="maxDaysToEta"
+                  type="number"
+                  placeholder="Any"
+                  value={filters.maxDaysToEta ?? ''}
+                  onChange={(e) =>
+                    onFiltersChange({
+                      ...filters,
+                      maxDaysToEta: e.target.value ? parseInt(e.target.value, 10) : undefined,
+                    })
+                  }
+                />
+              </div>
+            </div>
           </div>
         )}
       </div>
     </div>
   )
 }
-
