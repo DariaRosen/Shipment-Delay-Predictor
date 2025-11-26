@@ -48,5 +48,9 @@ docs/
 *.md
 !README.md
 !frontend/README.md
-text.docx
+
+# Word documents (except CereBI_Daria_Rosen_Assignment.docx)
+*.docx
+!CereBI_Daria_Rosen_Assignment.docx
+~$*.docx
 
