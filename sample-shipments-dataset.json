@@ -1,0 +1,509 @@
+[
+  {
+    "shipmentId": "LD1001",
+    "origin": "Shanghai",
+    "destination": "Los Angeles",
+    "mode": "Sea",
+    "carrierName": "OceanBlue",
+    "serviceLevel": "Std",
+    "currentStage": "Port Loading",
+    "plannedEta": "2025-11-23T18:00:00Z",
+    "daysToEta": -2,
+    "lastMilestoneUpdate": "2025-11-22T14:00:00Z",
+    "orderDate": "2025-11-20T00:00:00Z",
+    "riskScore": 95,
+    "severity": "Critical",
+    "riskReasons": ["StaleStatus", "PortCongestion"],
+    "riskFactorPoints": [
+      {
+        "factor": "BaseScore",
+        "points": 90,
+        "description": "Critical delay: 2 days past ETA (short timeline)"
+      },
+      {
+        "factor": "StaleStatus",
+        "points": 4,
+        "description": "No status update in 3+ days"
+      },
+      {
+        "factor": "PortCongestion",
+        "points": 7,
+        "description": "Shipment has been at port for more than 2 days"
+      }
+    ],
+    "owner": "west-coast-team",
+    "acknowledged": false,
+    "status": "in_progress"
+  },
+  {
+    "shipmentId": "LD1002",
+    "origin": "Berlin",
+    "destination": "Chicago",
+    "mode": "Sea",
+    "carrierName": "OceanBlue",
+    "serviceLevel": "Express",
+    "currentStage": "Awaiting Port Departure",
+    "plannedEta": "2025-11-22T12:00:00Z",
+    "daysToEta": -3,
+    "lastMilestoneUpdate": "2025-11-20T08:00:00Z",
+    "orderDate": "2025-11-15T00:00:00Z",
+    "riskScore": 82,
+    "severity": "High",
+    "riskReasons": ["StaleStatus", "PortCongestion"],
+    "riskFactorPoints": [
+      {
+        "factor": "BaseScore",
+        "points": 70,
+        "description": "High delay: 3 days past ETA"
+      },
+      {
+        "factor": "StaleStatus",
+        "points": 4
+      },
+      {
+        "factor": "PortCongestion",
+        "points": 7
+      },
+      {
+        "factor": "International",
+        "points": 1,
+        "description": "International shipment"
+      }
+    ],
+    "owner": "air-expedite",
+    "acknowledged": false,
+    "status": "in_progress"
+  },
+  {
+    "shipmentId": "LD1003",
+    "origin": "Berlin",
+    "destination": "Chicago",
+    "mode": "Air",
+    "carrierName": "SkyBridge",
+    "serviceLevel": "Express",
+    "currentStage": "Awaiting Customs",
+    "plannedEta": "2025-11-23T12:00:00Z",
+    "daysToEta": -2,
+    "lastMilestoneUpdate": "2025-11-22T10:00:00Z",
+    "orderDate": "2025-11-20T00:00:00Z",
+    "riskScore": 86,
+    "severity": "High",
+    "riskReasons": ["CustomsHold"],
+    "riskFactorPoints": [
+      {
+        "factor": "BaseScore",
+        "points": 70,
+        "description": "High delay: 2 days past ETA"
+      },
+      {
+        "factor": "CustomsHold",
+        "points": 8,
+        "description": "Shipment has been in customs for more than 1 day"
+      },
+      {
+        "factor": "International",
+        "points": 1
+      },
+      {
+        "factor": "ExpressRisk",
+        "points": 2,
+        "description": "Express service not meeting timeline expectations"
+      }
+    ],
+    "owner": "air-expedite",
+    "acknowledged": false,
+    "status": "in_progress"
+  },
+  {
+    "shipmentId": "LD1004",
+    "origin": "Newark",
+    "destination": "Toronto",
+    "mode": "Road",
+    "carrierName": "NorthDrive",
+    "serviceLevel": "Priority",
+    "currentStage": "Ready for Dispatch",
+    "plannedEta": "2025-11-24T20:00:00Z",
+    "daysToEta": -1,
+    "lastMilestoneUpdate": "2025-11-21T14:00:00Z",
+    "orderDate": "2025-11-20T00:00:00Z",
+    "riskScore": 58,
+    "severity": "Medium",
+    "riskReasons": ["MissedDeparture"],
+    "riskFactorPoints": [
+      {
+        "factor": "BaseScore",
+        "points": 50,
+        "description": "Medium delay: 1 day past ETA (short timeline)"
+      },
+      {
+        "factor": "MissedDeparture",
+        "points": 8,
+        "description": "Shipment is close to ETA but still in early stage"
+      }
+    ],
+    "owner": "road-east",
+    "acknowledged": false,
+    "status": "in_progress"
+  },
+  {
+    "shipmentId": "LD1005",
+    "origin": "Mumbai",
+    "destination": "London",
+    "mode": "Air",
+    "carrierName": "AeroLink",
+    "serviceLevel": "Std",
+    "currentStage": "In Transit",
+    "plannedEta": "2025-11-24T06:00:00Z",
+    "daysToEta": -1,
+    "lastMilestoneUpdate": "2025-11-22T16:00:00Z",
+    "orderDate": "2025-11-10T00:00:00Z",
+    "riskScore": 21,
+    "severity": "Low",
+    "riskReasons": [],
+    "riskFactorPoints": [
+      {
+        "factor": "BaseScore",
+        "points": 20,
+        "description": "Low delay: 1 day past ETA"
+      },
+      {
+        "factor": "International",
+        "points": 1
+      }
+    ],
+    "owner": "emea-air",
+    "acknowledged": false,
+    "status": "in_progress"
+  },
+  {
+    "shipmentId": "LD1006",
+    "origin": "Newark",
+    "destination": "Toronto",
+    "mode": "Road",
+    "carrierName": "NorthDrive",
+    "serviceLevel": "Priority",
+    "currentStage": "Warehouse",
+    "plannedEta": "2025-11-26T20:00:00Z",
+    "daysToEta": 1,
+    "lastMilestoneUpdate": "2025-11-23T10:00:00Z",
+    "orderDate": "2025-11-22T00:00:00Z",
+    "riskScore": 8,
+    "severity": "Minimal",
+    "riskReasons": ["MissedDeparture"],
+    "riskFactorPoints": [
+      {
+        "factor": "MissedDeparture",
+        "points": 8,
+        "description": "Shipment is close to ETA but still in early stage"
+      }
+    ],
+    "owner": "road-east",
+    "acknowledged": false,
+    "status": "in_progress"
+  },
+  {
+    "shipmentId": "LD1007",
+    "origin": "Ho Chi Minh",
+    "destination": "Houston",
+    "mode": "Sea",
+    "carrierName": "BlueWave",
+    "serviceLevel": "Std",
+    "currentStage": "Hub Processing",
+    "plannedEta": "2025-11-28T00:00:00Z",
+    "daysToEta": 3,
+    "lastMilestoneUpdate": "2025-11-19T14:00:00Z",
+    "orderDate": "2025-11-12T00:00:00Z",
+    "riskScore": 15,
+    "severity": "Minimal",
+    "riskReasons": ["StaleStatus", "LongDwell"],
+    "riskFactorPoints": [
+      {
+        "factor": "StaleStatus",
+        "points": 4
+      },
+      {
+        "factor": "LongDwell",
+        "points": 6,
+        "description": "Shipment stuck in same stage for more than 2 days"
+      },
+      {
+        "factor": "HubCongestion",
+        "points": 6
+      },
+      {
+        "factor": "International",
+        "points": 1
+      }
+    ],
+    "owner": "gulf-team",
+    "acknowledged": false,
+    "status": "in_progress"
+  },
+  {
+    "shipmentId": "LD1008",
+    "origin": "Paris",
+    "destination": "New York",
+    "mode": "Air",
+    "carrierName": "SkyBridge",
+    "serviceLevel": "Express",
+    "currentStage": "At Distribution Hub",
+    "plannedEta": "2025-11-24T14:00:00Z",
+    "daysToEta": -1,
+    "lastMilestoneUpdate": "2025-11-20T16:00:00Z",
+    "orderDate": "2025-11-18T00:00:00Z",
+    "riskScore": 59,
+    "severity": "Medium",
+    "riskReasons": ["HubCongestion"],
+    "riskFactorPoints": [
+      {
+        "factor": "BaseScore",
+        "points": 50,
+        "description": "Medium delay: 1 day past ETA (short timeline)"
+      },
+      {
+        "factor": "HubCongestion",
+        "points": 6
+      },
+      {
+        "factor": "International",
+        "points": 1
+      },
+      {
+        "factor": "ExpressRisk",
+        "points": 2
+      }
+    ],
+    "owner": "east-coast-team",
+    "acknowledged": false,
+    "status": "in_progress"
+  },
+  {
+    "shipmentId": "LD1009",
+    "origin": "Tokyo",
+    "destination": "Seattle",
+    "mode": "Sea",
+    "carrierName": "PacificCarriers",
+    "serviceLevel": "Std",
+    "currentStage": "Awaiting Pickup",
+    "plannedEta": "2025-11-30T10:00:00Z",
+    "daysToEta": 5,
+    "lastMilestoneUpdate": "2025-11-23T08:00:00Z",
+    "orderDate": "2025-11-15T00:00:00Z",
+    "riskScore": 6,
+    "severity": "Minimal",
+    "riskReasons": ["NoPickup"],
+    "riskFactorPoints": [
+      {
+        "factor": "NoPickup",
+        "points": 5,
+        "description": "Shipment awaiting pickup for more than 1 day"
+      },
+      {
+        "factor": "International",
+        "points": 1
+      }
+    ],
+    "owner": "west-coast-team",
+    "acknowledged": false,
+    "status": "in_progress"
+  },
+  {
+    "shipmentId": "LD1010",
+    "origin": "Chicago",
+    "destination": "Miami",
+    "mode": "Road",
+    "carrierName": "NorthDrive",
+    "serviceLevel": "Std",
+    "currentStage": "In Transit",
+    "plannedEta": "2025-11-30T16:00:00Z",
+    "daysToEta": 5,
+    "lastMilestoneUpdate": "2025-11-24T14:00:00Z",
+    "orderDate": "2025-11-18T00:00:00Z",
+    "riskScore": 0,
+    "severity": "Minimal",
+    "riskReasons": [],
+    "riskFactorPoints": [],
+    "owner": "domestic-team",
+    "acknowledged": false,
+    "status": "in_progress"
+  },
+  {
+    "shipmentId": "LD1011",
+    "origin": "Shanghai",
+    "destination": "Los Angeles",
+    "mode": "Sea",
+    "carrierName": "OceanBlue",
+    "serviceLevel": "Express",
+    "currentStage": "Port Loading",
+    "plannedEta": "2025-11-23T18:00:00Z",
+    "daysToEta": -2,
+    "lastMilestoneUpdate": "2025-11-20T14:00:00Z",
+    "orderDate": "2025-11-18T00:00:00Z",
+    "riskScore": 100,
+    "severity": "Critical",
+    "riskReasons": ["PortCongestion", "CapacityShortage"],
+    "riskFactorPoints": [
+      {
+        "factor": "BaseScore",
+        "points": 90,
+        "description": "Critical delay: 2 days past ETA (short timeline)"
+      },
+      {
+        "factor": "PortCongestion",
+        "points": 7
+      },
+      {
+        "factor": "CapacityShortage",
+        "points": 6
+      },
+      {
+        "factor": "International",
+        "points": 1
+      },
+      {
+        "factor": "PeakSeason",
+        "points": 1,
+        "description": "Peak holiday season (Nov/Dec)"
+      }
+    ],
+    "owner": "west-coast-team",
+    "acknowledged": false,
+    "status": "in_progress"
+  },
+  {
+    "shipmentId": "LD1012",
+    "origin": "Miami",
+    "destination": "London",
+    "mode": "Sea",
+    "carrierName": "AtlanticShipping",
+    "serviceLevel": "Express",
+    "currentStage": "In Transit",
+    "plannedEta": "2025-11-20T12:00:00Z",
+    "daysToEta": -5,
+    "lastMilestoneUpdate": "2025-11-18T10:00:00Z",
+    "orderDate": "2025-11-10T00:00:00Z",
+    "riskScore": 84,
+    "severity": "High",
+    "riskReasons": ["WeatherAlert"],
+    "riskFactorPoints": [
+      {
+        "factor": "BaseScore",
+        "points": 70,
+        "description": "High delay: 5 days past ETA"
+      },
+      {
+        "factor": "WeatherAlert",
+        "points": 7,
+        "description": "Weather-related delay detected in shipment events"
+      },
+      {
+        "factor": "International",
+        "points": 1
+      },
+      {
+        "factor": "PeakSeason",
+        "points": 1
+      },
+      {
+        "factor": "ExpressRisk",
+        "points": 2
+      }
+    ],
+    "owner": "emea-sea",
+    "acknowledged": false,
+    "status": "in_progress"
+  },
+  {
+    "shipmentId": "LD1013",
+    "origin": "New York",
+    "destination": "Los Angeles",
+    "mode": "Road",
+    "carrierName": "NorthDrive",
+    "serviceLevel": "Priority",
+    "currentStage": "Order scheduled",
+    "plannedEta": "2025-11-30T10:00:00Z",
+    "daysToEta": 5,
+    "lastMilestoneUpdate": "2025-11-26T00:00:00Z",
+    "orderDate": "2025-11-26T00:00:00Z",
+    "riskScore": 0,
+    "severity": "Minimal",
+    "riskReasons": [],
+    "riskFactorPoints": [],
+    "owner": "domestic-team",
+    "acknowledged": false,
+    "status": "future"
+  },
+  {
+    "shipmentId": "LD1014",
+    "origin": "Mexico City",
+    "destination": "Dallas",
+    "mode": "Road",
+    "carrierName": "BorderLogistics",
+    "serviceLevel": "Std",
+    "currentStage": "Warehouse",
+    "plannedEta": "2025-11-24T08:00:00Z",
+    "daysToEta": -1,
+    "lastMilestoneUpdate": "2025-11-20T10:00:00Z",
+    "orderDate": "2025-11-15T00:00:00Z",
+    "riskScore": 25,
+    "severity": "Minimal",
+    "riskReasons": ["CapacityShortage"],
+    "riskFactorPoints": [
+      {
+        "factor": "CapacityShortage",
+        "points": 6,
+        "description": "Capacity-related delay detected in shipment events"
+      },
+      {
+        "factor": "International",
+        "points": 1
+      },
+      {
+        "factor": "PeakSeason",
+        "points": 1
+      }
+    ],
+    "owner": "south-team",
+    "acknowledged": false,
+    "status": "in_progress"
+  },
+  {
+    "shipmentId": "LD1015",
+    "origin": "São Paulo",
+    "destination": "New York",
+    "mode": "Air",
+    "carrierName": "SouthAmericaAir",
+    "serviceLevel": "Express",
+    "currentStage": "Awaiting Customs",
+    "plannedEta": "2025-11-26T14:00:00Z",
+    "daysToEta": 1,
+    "lastMilestoneUpdate": "2025-11-22T14:00:00Z",
+    "orderDate": "2025-11-12T00:00:00Z",
+    "riskScore": 18,
+    "severity": "Minimal",
+    "riskReasons": ["DocsMissing"],
+    "riskFactorPoints": [
+      {
+        "factor": "DocsMissing",
+        "points": 7,
+        "description": "Documentation issue detected in shipment events"
+      },
+      {
+        "factor": "International",
+        "points": 1
+      },
+      {
+        "factor": "PeakSeason",
+        "points": 1
+      },
+      {
+        "factor": "ExpressRisk",
+        "points": 2
+      }
+    ],
+    "owner": "east-coast-team",
+    "acknowledged": false,
+    "status": "in_progress"
+  }
+]
+

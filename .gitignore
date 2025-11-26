@@ -48,4 +48,5 @@ docs/
 *.md
 !README.md
 !frontend/README.md
+text.docx
 
