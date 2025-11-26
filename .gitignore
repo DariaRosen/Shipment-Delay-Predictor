@@ -47,10 +47,10 @@ Thumbs.db
 docs/
 *.md
 !README.md
-!frontend/README.md
 
 # Word documents (except CereBI_Daria_Rosen_Assignment.docx)
 *.docx
 !CereBI_Daria_Rosen_Assignment.docx
 ~$*.docx
 sample-shipments-dataset.json
+delay-logic-snippet.ts

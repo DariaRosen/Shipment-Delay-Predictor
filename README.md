@@ -14,14 +14,32 @@ LogiDog is a leading global logistics company managing thousands of shipments da
 
 ```
 Shipment-Delay-Predictor/
-├── frontend/          # Next.js 15 + TypeScript + Tailwind CSS
-│   ├── app/          # Next.js App Router pages and API routes
-│   ├── components/   # React components
-│   ├── hooks/        # React Query hooks
-│   ├── lib/          # Utilities, services, and API logic
-│   └── types/        # TypeScript type definitions
-├── scripts/          # Utility scripts
-└── README.md         # This file
+├── frontend/                    # Next.js 15 + TypeScript + Tailwind CSS
+│   ├── app/
+│   │   ├── (dashboard)/        # Dashboard pages (alerts, shipments)
+│   │   │   ├── alerts/         # Alerts dashboard page
+│   │   │   ├── shipment/       # Shipment search and detail pages
+│   │   │   └── shipments/      # Shipments listing page
+│   │   ├── api/                # Next.js API routes
+│   │   │   └── alerts/         # Alert and shipment API endpoints
+│   │   ├── layout.tsx           # Root layout with providers
+│   │   └── page.tsx             # Home page
+│   ├── components/             # React components
+│   │   ├── alerts/              # Alert-specific components
+│   │   ├── charts/              # Chart components
+│   │   ├── navigation/          # Navigation components
+│   │   ├── shipment/            # Shipment components
+│   │   ├── shipments/           # Shipments components
+│   │   ├── tables/              # Table components
+│   │   └── ui/                  # Shadcn UI components
+│   ├── hooks/                   # React Query hooks
+│   ├── lib/                     # Utilities, services, and API logic
+│   │   ├── api/                 # API route logic
+│   │   ├── services/            # Business logic services
+│   │   └── supabase.ts          # Supabase client
+│   └── types/                   # TypeScript type definitions
+├── scripts/                     # Utility scripts
+└── README.md                    # This file
 ```
 
 ## 🚀 Getting Started
@@ -90,6 +108,7 @@ All API routes are implemented as Next.js API routes in `frontend/app/api/`:
 
 - `GET /api/alerts` - Fetch alerts with optional filters
 - `GET /api/alerts/:shipmentId` - Get single alert details
+- `GET /api/alerts/shipments/all` - Fetch all shipments with optional filters (year, month, status, search)
 - `POST /api/alerts/acknowledge` - Acknowledge an alert
 - `POST /api/alerts/recalculate` - Recalculate alert data for all shipments
 
@@ -110,14 +129,17 @@ Risk scores are calculated based on these factors and categorized into severity 
 
 ## 📚 Documentation
 
-**Complete project documentation is available in the Word document (`text.docx`)** which includes:
+Additional documentation files in the repository:
 
-- Problem Analysis
-- UI Design Reference
-- API Design and Sample Data
-- Delay Logic Implementation
-- Risk Scoring System
-- Rules Engine Details
+- `CereBI_Daria_Rosen_Assignment.docx` - Complete project documentation including:
+  - Problem Analysis
+  - UI Design Reference
+  - API Design and Sample Data
+  - Delay Logic Implementation
+  - Risk Scoring System
+  - Rules Engine Details
+- `sample-shipments-dataset.sql` - SQL script with sample shipment data
+- `SAMPLE_SHIPMENTS_DATASET_README.md` - Documentation for sample data
 
 ## 🤝 Contributing
 
