@@ -53,4 +53,4 @@ docs/
 *.docx
 !CereBI_Daria_Rosen_Assignment.docx
 ~$*.docx
-
+sample-shipments-dataset.json
