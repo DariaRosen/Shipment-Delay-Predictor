@@ -112,6 +112,13 @@ All API routes are implemented as Next.js API routes in `frontend/app/api/`:
 - `POST /api/alerts/acknowledge` - Acknowledge an alert
 - `POST /api/alerts/recalculate` - Recalculate alert data for all shipments
 
+## 🧪 Test Data Mode
+
+Supabase is no longer required for local development. The API now generates realistic
+test shipments on every request (see `frontend/test-data/generate-test-shipments.ts`).
+Each dataset includes 30-40 shipments spanning all severities and risk factors, so the
+dashboard always has fresh scenarios without needing a persistent database.
+
 ## 🔍 Delay Detection Logic
 
 The system uses rule-based logic to identify at-risk shipments:

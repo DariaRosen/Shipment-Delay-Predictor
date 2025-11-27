@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getSupabaseClient } from '@/lib/supabase';
+import { generateTestShipments } from '@/test-data/generate-test-shipments';
+import { setAcknowledged } from '@/lib/test-data-store';
 
 export async function POST(request: NextRequest) {
   try {
@@ -13,28 +14,21 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const supabase = getSupabaseClient();
-    const { data, error } = await supabase
-      .from('shipments')
-      .update({
-        acknowledged: true,
-        acknowledged_by: userId,
-        acknowledged_at: new Date().toISOString(),
-      })
-      .eq('shipment_id', shipmentId)
-      .select()
-      .single();
+    const { shipments } = generateTestShipments();
+    const exists = shipments.some((shipment) => shipment.shipment_id === shipmentId);
 
-    if (error || !data) {
+    if (!exists) {
       return NextResponse.json(
         { error: `Shipment with id ${shipmentId} was not found` },
         { status: 404 },
       );
     }
 
+    setAcknowledged(shipmentId, userId);
+
     return NextResponse.json({
       message: `Shipment ${shipmentId} acknowledged by ${userId}`,
-      acknowledgedAt: data.acknowledged_at,
+      acknowledgedAt: new Date().toISOString(),
     });
   } catch (error) {
     console.error('Error in POST /api/alerts/acknowledge:', error);
