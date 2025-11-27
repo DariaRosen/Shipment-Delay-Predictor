@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { generateTestShipments } from '@/test-data/generate-test-shipments';
 import { setAcknowledged } from '@/lib/test-data-store';
+import { DATA_SOURCE } from '@/lib/data-source';
+import { getSupabaseClient } from '@/lib/supabase';
 
 export async function POST(request: NextRequest) {
   try {
@@ -12,6 +14,32 @@ export async function POST(request: NextRequest) {
         { error: 'shipmentId and userId are required' },
         { status: 400 },
       );
+    }
+
+    if (DATA_SOURCE === 'supabase') {
+      const supabase = getSupabaseClient();
+      const { data, error } = await supabase
+        .from('shipments')
+        .update({
+          acknowledged: true,
+          acknowledged_by: userId,
+          acknowledged_at: new Date().toISOString(),
+        })
+        .eq('shipment_id', shipmentId)
+        .select()
+        .single();
+
+      if (error || !data) {
+        return NextResponse.json(
+          { error: `Shipment with id ${shipmentId} was not found` },
+          { status: 404 },
+        );
+      }
+
+      return NextResponse.json({
+        message: `Shipment ${shipmentId} acknowledged by ${userId}`,
+        acknowledgedAt: data.acknowledged_at,
+      });
     }
 
     const { shipments } = generateTestShipments();

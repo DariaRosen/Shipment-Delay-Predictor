@@ -119,6 +119,17 @@ test shipments on every request (see `frontend/test-data/generate-test-shipments
 Each dataset includes 30-40 shipments spanning all severities and risk factors, so the
 dashboard always has fresh scenarios without needing a persistent database.
 
+To switch between local test data and a real Supabase instance, edit `frontend/lib/data-source.ts`
+and comment/uncomment the desired option:
+
+```ts
+// export const DATA_SOURCE: DataSourceMode = 'supabase'
+export const DATA_SOURCE: DataSourceMode = 'local'
+```
+
+When `supabase` is selected, be sure to provide `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY`
+in your `.env.local`.
+
 ## 🔍 Delay Detection Logic
 
 The system uses rule-based logic to identify at-risk shipments:
