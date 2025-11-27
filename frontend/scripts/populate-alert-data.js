@@ -1,12 +1,15 @@
 /**
  * Script to populate calculated alert data in the database.
  * 
- * Usage:
+ * Usage (from frontend directory):
  *   node scripts/populate-alert-data.js
  * 
  * Or make it executable and run directly (Unix/Mac):
  *   chmod +x scripts/populate-alert-data.js
  *   ./scripts/populate-alert-data.js
+ * 
+ * Or use npm script:
+ *   npm run populate-alerts
  */
 
 const https = require('https');
