@@ -107,6 +107,9 @@ const severityScenarios: ScenarioConfig[] = [
   },
 ]
 
+const COMPLETED_SHIPMENTS_COUNT = 4
+const CANCELED_SHIPMENTS_COUNT = 3
+
 const lanes = [
   { origin_city: 'Shanghai', origin_country: 'China', dest_city: 'Los Angeles', dest_country: 'USA' },
   { origin_city: 'Berlin', origin_country: 'Germany', dest_city: 'Chicago', dest_country: 'USA' },
@@ -228,7 +231,119 @@ export function generateTestShipments(totalCount = 40): GeneratedTestData {
     }
   })
 
+  addCompletedShipments({
+    count: COMPLETED_SHIPMENTS_COUNT,
+    now,
+    shipments,
+    events,
+    nextId: () => `TSF${String(sequence++).padStart(4, '0')}`,
+  })
+
+  addCanceledShipments({
+    count: CANCELED_SHIPMENTS_COUNT,
+    now,
+    shipments,
+    events,
+    nextId: () => `TSC${String(sequence++).padStart(4, '0')}`,
+  })
+
   return { shipments, events }
+}
+
+interface SpecialShipmentParams {
+  count: number
+  now: number
+  shipments: GeneratedShipmentRecord[]
+  events: GeneratedEventRecord[]
+  nextId: () => string
+}
+
+function addCompletedShipments(params: SpecialShipmentParams) {
+  const { count, now, shipments, events, nextId } = params
+  const delayCalculatorLanes = lanes.slice(0, count)
+  for (let i = 0; i < count; i++) {
+    const shipmentId = nextId()
+    const lane = delayCalculatorLanes[i % delayCalculatorLanes.length]
+    const orderDate = new Date(now - (15 + i) * DAY_MS)
+    const expectedDelivery = new Date(orderDate.getTime() + 10 * DAY_MS)
+    const deliveredDate = new Date(expectedDelivery.getTime() - DAY_MS)
+
+    const shipment: GeneratedShipmentRecord = {
+      shipment_id: shipmentId,
+      order_date: orderDate.toISOString(),
+      expected_delivery: expectedDelivery.toISOString(),
+      current_status: 'Delivered',
+      carrier: 'RoadFast',
+      mode: 'Road',
+      origin_city: lane.origin_city,
+      origin_country: lane.origin_country,
+      dest_city: lane.dest_city,
+      dest_country: lane.dest_country,
+      service_level: 'Priority',
+      owner: 'ops-completed',
+      priority_level: 'normal',
+      acknowledged: true,
+      acknowledged_by: 'system',
+      acknowledged_at: new Date(now - DAY_MS).toISOString(),
+    }
+
+    shipments.push(shipment)
+
+    addEvent(events, shipmentId, orderDate, 'Order has been successfully created', 'Order received', lane.origin_city)
+    addEvent(events, shipmentId, new Date(orderDate.getTime() + 2 * DAY_MS), 'Departed from origin', 'Shipment departed', lane.origin_city)
+    addEvent(events, shipmentId, deliveredDate, 'Package received by customer', 'Delivered successfully', lane.dest_city)
+  }
+}
+
+function addCanceledShipments(params: SpecialShipmentParams) {
+  const { count, now, shipments, events, nextId } = params
+  const selectedLanes = lanes.slice(-count)
+  for (let i = 0; i < count; i++) {
+    const shipmentId = nextId()
+    const lane = selectedLanes[i % selectedLanes.length]
+    const orderDate = new Date(now - (40 + i) * DAY_MS)
+    const expectedDelivery = new Date(orderDate.getTime() + 15 * DAY_MS)
+    const cancellationDate = new Date(orderDate.getTime() + 32 * DAY_MS)
+
+    const shipment: GeneratedShipmentRecord = {
+      shipment_id: shipmentId,
+      order_date: orderDate.toISOString(),
+      expected_delivery: expectedDelivery.toISOString(),
+      current_status: 'Shipment canceled',
+      carrier: 'OceanBlue',
+      mode: 'Sea',
+      origin_city: lane.origin_city,
+      origin_country: lane.origin_country,
+      dest_city: lane.dest_city,
+      dest_country: lane.dest_country,
+      service_level: 'Std',
+      owner: 'ops-canceled',
+      priority_level: 'normal',
+      acknowledged: false,
+      acknowledged_by: null,
+      acknowledged_at: null,
+    }
+
+    shipments.push(shipment)
+
+    addEvent(events, shipmentId, orderDate, 'Order has been successfully created', 'Order received', lane.origin_city)
+    addEvent(
+      events,
+      shipmentId,
+      new Date(orderDate.getTime() + 5 * DAY_MS),
+      'Hub Processing',
+      'Shipment stuck at hub for extended period',
+      lane.origin_city,
+    )
+    addEvent(
+      events,
+      shipmentId,
+      cancellationDate,
+      'Refund customer',
+      'Shipment canceled and refund issued',
+      lane.dest_city,
+    )
+  }
 }
 
 
