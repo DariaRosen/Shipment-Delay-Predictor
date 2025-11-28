@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useMemo } from 'react'
 import { Input } from '@/components/ui/input'
 import {
   Select,
@@ -23,9 +23,6 @@ interface AlertsFiltersProps {
   serviceLevels: string[]
   owners: string[]
 }
-
-const SEARCH_HISTORY_KEY = 'shipment-search-history'
-const MAX_HISTORY_ITEMS = 10
 
 const RISK_REASONS: RiskReason[] = [
   'StaleStatus',
@@ -79,43 +76,10 @@ const getRiskFactorLabel = (factor: RiskFactorFilter): string => {
 }
 
 export const AlertsFilters = ({ filters, onFiltersChange, carriers, serviceLevels, owners }: AlertsFiltersProps) => {
-  const [searchHistory, setSearchHistory] = useState<string[]>([])
-  const [showHistory, setShowHistory] = useState(false)
-  const [isMounted, setIsMounted] = useState(false)
+  const isMounted = typeof window !== 'undefined'
   const [showAdvanced, setShowAdvanced] = useState(false)
-
-  useEffect(() => {
-    setIsMounted(true)
-    const history = localStorage.getItem(SEARCH_HISTORY_KEY)
-    if (history) {
-      try {
-        setSearchHistory(JSON.parse(history))
-      } catch {
-        setSearchHistory([])
-      }
-    }
-  }, [])
-
   const handleSearchChange = (value: string) => {
     onFiltersChange({ ...filters, search: value || undefined })
-    setShowHistory(value.length === 0 && searchHistory.length > 0)
-  }
-
-  const handleSearchSubmit = (value: string) => {
-    if (value.trim()) {
-      const newHistory = [
-        value.trim(),
-        ...searchHistory.filter((item) => item !== value.trim()),
-      ].slice(0, MAX_HISTORY_ITEMS)
-      setSearchHistory(newHistory)
-      localStorage.setItem(SEARCH_HISTORY_KEY, JSON.stringify(newHistory))
-    }
-    setShowHistory(false)
-  }
-
-  const handleHistorySelect = (item: string) => {
-    onFiltersChange({ ...filters, search: item })
-    setShowHistory(false)
   }
 
   const clearFilters = () => {
@@ -147,44 +111,15 @@ export const AlertsFilters = ({ filters, onFiltersChange, carriers, serviceLevel
             <Search className="h-4 w-4" />
             Search
           </Label>
-          <div className="relative">
-            <Input
-              id="search"
-              name="shipment-search"
-              type="text"
-              autoComplete="off"
-              placeholder="Shipment ID, origin, destination, owner..."
-              value={filters.search || ''}
-              onChange={(e) => handleSearchChange(e.target.value)}
-              onFocus={() => {
-                if (!filters.search && searchHistory.length > 0) {
-                  setShowHistory(true)
-                }
-              }}
-              onBlur={() => {
-                setTimeout(() => setShowHistory(false), 200)
-              }}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') {
-                  handleSearchSubmit(e.currentTarget.value)
-                }
-              }}
-            />
-            {showHistory && searchHistory.length > 0 && (
-              <div className="absolute z-50 w-full mt-1 bg-white border border-teal-200 rounded-md shadow-lg max-h-60 overflow-auto">
-                {searchHistory.map((item, index) => (
-                  <button
-                    key={index}
-                    type="button"
-                    className="w-full text-left px-3 py-2 hover:bg-teal-50 text-sm text-slate-700"
-                    onClick={() => handleHistorySelect(item)}
-                  >
-                    {item}
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
+          <Input
+            id="search"
+            name="shipment-search"
+            type="text"
+            autoComplete="off"
+            placeholder="Shipment ID, origin, destination, owner..."
+            value={filters.search || ''}
+            onChange={(e) => handleSearchChange(e.target.value)}
+          />
         </div>
 
         {/* Risk Score Filter */}
